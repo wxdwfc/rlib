@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <infiniband/verbs.h>
+#include <vector>
 
 #include "logging.hpp"
 

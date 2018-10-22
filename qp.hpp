@@ -170,8 +170,8 @@ class RCQP : public QP {
    * Post request(s) to the sending QP.
    * This is just a wrapper of ibv_post_send
    */
-  ConnStatus post_send(ibv_wr_opcode op,char *local_buf,
-                       uint32_t len,uint64_t off,int flags,uint64_t wr_id = 0, uint32_t imm = 0) {
+  ConnStatus post_send(ibv_wr_opcode op,char *local_buf,uint32_t len,uint64_t off,int flags,
+                       uint64_t wr_id = 0, uint32_t imm = 0) {
     ConnStatus ret = SUCC;
     struct ibv_send_wr *bad_sr;
 
