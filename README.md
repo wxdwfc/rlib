@@ -31,6 +31,8 @@ c->open_device(idx);
 char *buffer = (char *)malloc(4096);
 RDMA_ASSERT(c->register_memory(73,buffer,4096,c->get_device()) == true);
 
+RCQP *qp = c->create_rc_qp(create_rc_idx(1,0),c->get_device(),c->get_local_mr(73));
+
 while(true) {
     // This is RDMA, server does not need to do anything :)
     sleep(1);
@@ -57,7 +59,7 @@ while(QP::get_remote_mr(remote_ip,tcp_port,73,&mr) != SUCC) {
 }
 
 // create the RC qp to access remote server's memory, using the previous registered memory
-RCQP *qp = c->create_rc_qp(0,0,0,c->get_device(),c->get_local_mr(73));
+RCQP *qp = c->create_rc_qp(create_rc_idx(1,0),c->get_device(),c->get_local_mr(73));
 qp->bind_remote_mr(mr); // bind to the previous allocated mr
 
 while(qp->connect(remote_ip,tcp_port) != SUCC)  {
