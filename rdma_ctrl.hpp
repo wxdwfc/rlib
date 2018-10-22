@@ -65,11 +65,11 @@ class RdmaCtrl {
    * A local MR is passed as the default local mr for this QP.
    * If local_attr = nullptr, then this QP is unbind to any MR.
    */
-  RCQP *create_rc_qp(int nid,int wid,int idx, RNicHandler *dev,MemoryAttr *local_attr = NULL);
-  RUDQP *create_ud_qp(int wid,int idx, RNicHandler *dev,MemoryAttr *local_attr = NULL);
+  RCQP *create_rc_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *local_attr = NULL);
+  RUDQP *create_ud_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *local_attr = NULL);
 
-  RCQP *get_rc_qp(int nid,int wid,int idx = 0);
-  RUDQP *get_ud_qp(int wid,int idx = 0);
+  RCQP *get_rc_qp(QPIdx idx);
+  RUDQP *get_ud_qp(QPIdx idx);
 
   /**
    * Some helper functions (example usage of RdmaCtrl)

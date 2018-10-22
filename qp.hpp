@@ -5,13 +5,35 @@
 
 namespace rdmaio {
 
+typedef struct {
+  int node_id;   // the node QP connect to
+  int worker_id; // the thread/task QP belongs
+  int index;     // mutliple QP may is needed to connect to the node
+} QPIdx;
+
+// some macros for easy computer QP idx, since some use default values
+constexpr QPIdx create_rc_idx(int nid,int wid) {
+  return QPIdx {
+    .node_id   = nid,
+    .worker_id = wid,
+    .index     = 0
+  };
+}
+
+constexpr QPIdx create_ud_idx(int worker_id,int idx = 0) {
+  return QPIdx {
+    .node_id   = 0, // a UD qp can connect to multiple machine
+    .worker_id = worker_id,
+    .index     = idx
+  };
+}
+
 class QP {
  public:
-  QP(RNicHandler *rnic,int n_id,int w_id,int idx = 0):
-      node_id_(n_id),
-      worker_id_(w_id),
-      idx_(idx),
-      rnic_(rnic) {
+  QP(RNicHandler *rnic,QPIdx idx):
+      rnic_(rnic),
+      idx_(idx)
+  {
   }
 
   ~QP() {
@@ -35,7 +57,7 @@ class QP {
    * return TIMEOUT if there is network error.
    * return NOT_READY if remote server fails to find the connected QP
    */
-  virtual ConnStatus connect(std::string ip,int port,int nid,int wid) = 0;
+  virtual ConnStatus connect(std::string ip,int port,QPIdx idx) = 0;
 
   // return until the completion events
   // this call will block until a timeout
@@ -67,9 +89,7 @@ class QP {
   }
 
   // QP identifiers
-  const int worker_id_; // thread id of the QP
-  const int node_id_;   // remote id the QP connect to
-  const int idx_;       // which QP connect to this mac, at this worker
+  const QPIdx idx_;
 
  public:
   // internal verbs structure
@@ -90,34 +110,34 @@ class QP {
 class RCQP : public QP {
  public:
   //
-  RCQP(RNicHandler *rnic,int n_id,int w_id,int idx,
+  RCQP(RNicHandler *rnic,QPIdx idx,
        MemoryAttr local_mr,MemoryAttr remote_mr,int access_flags = DEFAULT_RC_INIT_FLAGS)
-      :RCQP(rnic,n_id,w_id,idx,access_flags) {
+      :RCQP(rnic,idx,access_flags) {
     bind_local_mr(local_mr);
     bind_remote_mr(remote_mr);
   }
 
-  RCQP(RNicHandler *rnic,int n_id,int w_id,int idx,MemoryAttr local_mr,int access_flags = DEFAULT_RC_INIT_FLAGS)
-      :RCQP(rnic,n_id,w_id,idx,access_flags) {
+  RCQP(RNicHandler *rnic,QPIdx idx,MemoryAttr local_mr,int access_flags = DEFAULT_RC_INIT_FLAGS)
+      :RCQP(rnic,idx,access_flags) {
     bind_local_mr(local_mr);
   }
 
-  RCQP(RNicHandler *rnic,int n_id,int w_id,int idx,int access_flags = DEFAULT_RC_INIT_FLAGS)
-      :QP(rnic,n_id,w_id,idx)
+  RCQP(RNicHandler *rnic,QPIdx idx,int access_flags = DEFAULT_RC_INIT_FLAGS)
+      :QP(rnic,idx)
   {
     RCQPImpl::init(qp_,cq_,rnic_,access_flags);
   }
 
   ConnStatus connect(std::string ip,int port) {
-    return connect(ip,port,node_id_,worker_id_);
+    return connect(ip,port,idx_);
   }
 
-  ConnStatus connect(std::string ip,int port,int nid,int wid) {
+  ConnStatus connect(std::string ip,int port,QPIdx idx) {
 
     ConnArg arg; ConnReply reply;
     arg.type = ConnArg::QP;
-    arg.payload.qp.from_node = nid;
-    arg.payload.qp.from_worker = wid;
+    arg.payload.qp.from_node   = idx.node_id;
+    arg.payload.qp.from_worker = idx.worker_id;
     arg.payload.qp.qp_type = IBV_QPT_RC;
 
     auto ret = QPImpl::get_remote_helper(&arg,&reply,ip,port);
@@ -239,13 +259,13 @@ class UDQP : public QP {
   // the QKEY is used to identify UD QP requests
   static const int DEFAULT_QKEY = 0xdeadbeaf;
  public:
-  UDQP(RNicHandler *rnic,int w_id,int idx,MemoryAttr local_mr)
-      :UDQP(rnic,w_id,idx) {
+  UDQP(RNicHandler *rnic,QPIdx idx,MemoryAttr local_mr)
+      :UDQP(rnic,idx) {
     bind_local_mr(local_mr);
   }
 
-  UDQP(RNicHandler *rnic,int w_id,int idx)
-      :QP(rnic,0 /* a dummy nid*/,w_id,idx) {
+  UDQP(RNicHandler *rnic,QPIdx idx)
+      :QP(rnic,idx) {
     UDQPImpl::init(qp_,cq_,recv_cq_,rnic_);
     std::fill_n(ahs_,MAX_SERVER_NUM,nullptr);
   }
@@ -273,15 +293,15 @@ class UDQP : public QP {
 
   ConnStatus connect(std::string ip,int port) {
     // UD QP is not bounded to a mac, so use idx to index
-    return connect(ip,port,node_id_,idx_);
+    return connect(ip,port,idx_);
   }
 
-  ConnStatus connect(std::string ip,int port,int wid,int idx) {
+  ConnStatus connect(std::string ip,int port,QPIdx idx) {
 
     ConnArg arg; ConnReply reply;
     arg.type = ConnArg::QP;
-    arg.payload.qp.from_node = wid;
-    arg.payload.qp.from_worker = idx;
+    arg.payload.qp.from_node   = idx.worker_id;
+    arg.payload.qp.from_worker = idx.index;
     arg.payload.qp.qp_type = IBV_QPT_UD;
 
     auto ret = QPImpl::get_remote_helper(&arg,&reply,ip,port);

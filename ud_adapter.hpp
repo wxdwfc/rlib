@@ -103,8 +103,8 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
       MsgAdapter(callback),
       node_id_(cm->current_node_id()),
       worker_id_(w_id),
-      UDRecvManager(cm->create_ud_qp(w_id,RECV_QP_IDX,rnic,&local_mr),max_recv_num,local_mr),
-      send_qp_(cm->create_ud_qp(w_id,SEND_QP_IDX,rnic,&local_mr))
+      UDRecvManager(cm->create_ud_qp(create_ud_idx(w_id,RECV_QP_IDX),rnic,&local_mr),max_recv_num,local_mr),
+      send_qp_(cm->create_ud_qp(create_ud_idx(w_id,SEND_QP_IDX),rnic,&local_mr))
   {
     // init send structures
     for(uint i = 0;i < MAX_UD_SEND_DOORBELL;++i) {
@@ -120,7 +120,7 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
   }
 
   ConnStatus connect(std::string ip,int port) {
-    return send_qp_->connect(ip,port,worker_id_,RECV_QP_IDX);
+    return send_qp_->connect(ip,port,create_ud_idx(worker_id_,RECV_QP_IDX));
   }
 
   ConnStatus send_to(int node_id,char *msg,int len) {
