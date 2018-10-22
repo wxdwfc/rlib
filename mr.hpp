@@ -1,0 +1,54 @@
+#pragma once
+
+#include <infiniband/verbs.h>
+#include "logging.hpp"
+
+namespace rdmaio {
+
+struct MemoryAttr {
+  uintptr_t  buf;
+  uint32_t   key;
+};
+
+struct Memory {
+
+  /**
+   * The default protection flag of a memory region.
+   * In default, the memory can be read/write by local and remote RNIC operations.
+   */
+  static const int DEFAULT_PROTECTION_FLAG = (IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | \
+                                              IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+
+
+  Memory(char *addr,uint64_t len,ibv_pd *pd,int flag):
+      addr(addr),len(len){
+
+    mr = ibv_reg_mr(pd,addr,len,flag);
+    if(mr == nullptr) {
+
+    } else {
+      rattr.buf = (uintptr_t)addr;
+      rattr.key = mr->rkey;
+    }
+  }
+
+  ~Memory() {
+    if(mr != NULL) {
+      int rc = ibv_dereg_mr(mr);
+      RDMA_LOG_IF(LOG_ERROR,rc != 0) << "dereg mr error: " << strerror(errno);
+    }
+  }
+
+  bool valid() {
+    return mr != nullptr;
+  }
+
+  char *addr;
+  uint64_t len;
+
+  MemoryAttr rattr;        // RDMA registered attr
+  ibv_mr *mr = NULL;       // mr in the driver
+};
+
+
+}; // namespace rdmaio
