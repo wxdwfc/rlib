@@ -7,9 +7,9 @@ while it additionally handles some tedius things, such as establishing connectio
 
 ------
 
-### Build
+### To use
 
-`#include "rdma_ctrl.hpp" is all you need.
+`#include "rdma_ctrl.hpp"` is all you need.
 
 ------
 
