@@ -52,7 +52,7 @@ RDMA_ASSERT(c->register_memory(73,buffer,4096,c->get_device()) == true);
 
 // get remote server's memory information
 MemoryAttr mr;
-while(QP::get_remote_mr(remote_ip,9999,73,&mr) != SUCC) {
+while(QP::get_remote_mr(remote_ip,tcp_port,73,&mr) != SUCC) {
     usleep(2000);
 }
 
@@ -60,7 +60,7 @@ while(QP::get_remote_mr(remote_ip,9999,73,&mr) != SUCC) {
 RCQP *qp = c->create_rc_qp(0,0,0,c->get_device(),c->get_local_mr(73));
 qp->bind_remote_mr(mr); // bind to the previous allocated mr
 
-while(qp->connect(remote_ip,9999) != SUCC)  {
+while(qp->connect(remote_ip,tcp_port) != SUCC)  {
     usleep(2000);
 }
 
