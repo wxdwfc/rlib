@@ -127,13 +127,16 @@ class RCQPImpl {
   static const int RC_MAX_SEND_SIZE = 128;
   static const int RC_MAX_RECV_SIZE = 512;
 
-  static void ready2init(ibv_qp *qp,RNicHandler *rnic,int flag) {
+  template <RCConfig (*F)(void)>
+  static void ready2init(ibv_qp *qp,RNicHandler *rnic) {
+
+    auto config = F();
 
     struct ibv_qp_attr qp_attr = {};
     qp_attr.qp_state = IBV_QPS_INIT;
     qp_attr.pkey_index = 0;
     qp_attr.port_num = rnic->port_id;
-    qp_attr.qp_access_flags = flag;
+    qp_attr.qp_access_flags = config.access_flags;
 
     int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
     int rc = ibv_modify_qp(qp, &qp_attr,flags);
@@ -145,28 +148,31 @@ class RCQPImpl {
     }
   }
 
+  template <RCConfig (*F)(void)>
   static bool ready2rcv(ibv_qp *qp,QPAttr &attr,RNicHandler *rnic) {
+
+    auto config = F();
 
     struct ibv_qp_attr qp_attr = {};
 
-    qp_attr.qp_state = IBV_QPS_RTR;
-    qp_attr.path_mtu = IBV_MTU_4096;
-    qp_attr.dest_qp_num = attr.qpn;
-    qp_attr.rq_psn = DEFAULT_PSN;
-    qp_attr.max_dest_rd_atomic = 16;
-    qp_attr.min_rnr_timer = 20;
+    qp_attr.qp_state              = IBV_QPS_RTR;
+    qp_attr.path_mtu              = IBV_MTU_4096;
+    qp_attr.dest_qp_num           = attr.qpn;
+    qp_attr.rq_psn                = config.rq_psn; // should this match the sender's psn ?
+    qp_attr.max_dest_rd_atomic    = config.max_dest_rd_atomic;
+    qp_attr.min_rnr_timer         = 20;
 
-    qp_attr.ah_attr.dlid = attr.lid;
-    qp_attr.ah_attr.sl = 0;
+    qp_attr.ah_attr.dlid          = attr.lid;
+    qp_attr.ah_attr.sl            = 0;
     qp_attr.ah_attr.src_path_bits = 0;
-    qp_attr.ah_attr.port_num = rnic->port_id; /* Local port! */
+    qp_attr.ah_attr.port_num      = rnic->port_id; /* Local port! */
 
-    qp_attr.ah_attr.is_global = 1;
+    qp_attr.ah_attr.is_global                     = 1;
     qp_attr.ah_attr.grh.dgid.global.subnet_prefix = attr.addr.subnet_prefix;
-    qp_attr.ah_attr.grh.dgid.global.interface_id = attr.addr.interface_id;
-    qp_attr.ah_attr.grh.sgid_index = 0;
-    qp_attr.ah_attr.grh.flow_label = 0;
-    qp_attr.ah_attr.grh.hop_limit = 255;
+    qp_attr.ah_attr.grh.dgid.global.interface_id  = attr.addr.interface_id;
+    qp_attr.ah_attr.grh.sgid_index                = 0;
+    qp_attr.ah_attr.grh.flow_label                = 0;
+    qp_attr.ah_attr.grh.hop_limit                 = 255;
 
     int flags = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN
                 | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
@@ -174,18 +180,21 @@ class RCQPImpl {
     return rc == 0;
   }
 
+  template <RCConfig (*F)(void)>
   static bool ready2send(ibv_qp *qp) {
+
+    auto config = F();
 
     int rc, flags;
     struct ibv_qp_attr qp_attr = {};
 
-    qp_attr.qp_state = IBV_QPS_RTS;
-    qp_attr.sq_psn = DEFAULT_PSN;
-    qp_attr.timeout = 21; // we use a longer timeout
-    qp_attr.retry_cnt = 7;
-    qp_attr.rnr_retry = 7;
-    qp_attr.max_rd_atomic = 16;
-    qp_attr.max_dest_rd_atomic = 16;
+    qp_attr.qp_state           = IBV_QPS_RTS;
+    qp_attr.sq_psn             = config.sq_psn;
+    qp_attr.timeout            = config.timeout;
+    qp_attr.retry_cnt          = 7;
+    qp_attr.rnr_retry          = 7;
+    qp_attr.max_rd_atomic      = config.max_rd_atomic;
+    qp_attr.max_dest_rd_atomic = config.max_dest_rd_atomic;
 
     flags = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY |
             IBV_QP_MAX_QP_RD_ATOMIC;
@@ -193,7 +202,8 @@ class RCQPImpl {
     return rc == 0;
   }
 
-  static void init(ibv_qp *&qp,ibv_cq *&cq,RNicHandler *rnic,int flags) {
+  template <RCConfig (*F)(void)>
+  static void init(ibv_qp *&qp,ibv_cq *&cq,RNicHandler *rnic) {
 
     // create the CQ
     cq = ibv_create_cq(rnic->ctx, RC_MAX_SEND_SIZE, NULL, NULL, 0);
@@ -216,7 +226,7 @@ class RCQPImpl {
     RDMA_VERIFY(LOG_WARNING,qp != NULL);
 
     if(qp)
-      ready2init(qp,rnic,flags);
+      ready2init<F>(qp,rnic);
   }
 };
 
@@ -225,20 +235,25 @@ class UDQPImpl {
   UDQPImpl() = default;
   ~UDQPImpl() = default;
 
-  static const int UD_MAX_SEND_SIZE = 128;
-  static const int UD_MAX_RECV_SIZE = 2048;
+  static const int MAX_SEND_SIZE = 128;
+  static const int MAX_RECV_SIZE = 2048;
 
+  template<UDConfig (*F)(void)>
   static void init(ibv_qp *&qp,ibv_cq *&cq,ibv_cq *&recv_cq,RNicHandler *rnic) {
+
+    auto config = F(); // generate the config
+    RDMA_ASSERT(config.max_send_size <= MAX_SEND_SIZE);
+    RDMA_ASSERT(config.max_recv_size <= MAX_RECV_SIZE);
 
     if(qp != nullptr)
       return;
 
-	if((cq = ibv_create_cq(rnic->ctx, UD_MAX_SEND_SIZE, NULL, NULL, 0)) == NULL) {
+	if((cq = ibv_create_cq(rnic->ctx, config.max_send_size, NULL, NULL, 0)) == NULL) {
       RDMA_LOG(LOG_ERROR) << "create send cq for UD QP error: " << strerror(errno);
       return;
     }
 
-	if((recv_cq = ibv_create_cq(rnic->ctx, UD_MAX_RECV_SIZE, NULL, NULL, 0)) == NULL) {
+	if((recv_cq = ibv_create_cq(rnic->ctx, config.max_recv_size, NULL, NULL, 0)) == NULL) {
       RDMA_LOG(LOG_ERROR) << "create recv cq for UD QP error: " << strerror(errno);
       return;
     }
@@ -249,8 +264,8 @@ class UDQPImpl {
 	qp_init_attr.recv_cq = recv_cq;
 	qp_init_attr.qp_type = IBV_QPT_UD;
 
-	qp_init_attr.cap.max_send_wr = UD_MAX_SEND_SIZE;
-	qp_init_attr.cap.max_recv_wr = UD_MAX_RECV_SIZE;
+	qp_init_attr.cap.max_send_wr = config.max_send_size;
+	qp_init_attr.cap.max_recv_wr = config.max_recv_size;
 	qp_init_attr.cap.max_send_sge = 1;
 	qp_init_attr.cap.max_recv_sge = 1;
 	qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
@@ -261,27 +276,32 @@ class UDQPImpl {
     }
 
     // change QP status
-	ready2init(qp, rnic); // shall always succeed
+	ready2init(qp, rnic,config); // shall always succeed
 #if 1
 	if(!ready2rcv(qp,rnic)) {
       RDMA_LOG(LOG_WARNING) << "change ud qp to ready to recv error: " << strerror(errno);
     }
 #endif
 #if 2
-	if(!ready2send(qp)) {
+	if(!ready2send(qp,config)) {
       RDMA_LOG(LOG_WARNING) << "change ud qp to ready to send error: " << strerror(errno);
     }
 #endif
   }
 
-  static void ready2init(ibv_qp *qp,RNicHandler *rnic) {
+  /**
+   * Unlike RC, which change status happens at different places, so F, the function which generates configurations,
+   * are passed as templates. On the other hand, UD change status at the same time. So it is more convenient to passed
+   * the configuration generated by the F to the functions.
+   */
+  static void ready2init(ibv_qp *qp,RNicHandler *rnic,UDConfig &config) {
 
 	int rc, flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY;
 	struct ibv_qp_attr qp_attr = {};
 	qp_attr.qp_state = IBV_QPS_INIT;
 	qp_attr.pkey_index = 0;
 	qp_attr.port_num = rnic->port_id;
-	qp_attr.qkey = DEFAULT_QKEY;
+	qp_attr.qkey = config.qkey;
 
 	if((rc = ibv_modify_qp(qp, &qp_attr, flags)) != 0) {
       RDMA_LOG(LOG_WARNING) << "modify ud qp to init error: " << strerror(errno);
@@ -298,12 +318,12 @@ class UDQPImpl {
     return rc == 0;
   }
 
-  static bool ready2send(ibv_qp *qp) {
+  static bool ready2send(ibv_qp *qp,UDConfig &config) {
 
 	int rc, flags = 0;
 	struct ibv_qp_attr qp_attr = {};
 	qp_attr.qp_state = IBV_QPS_RTS;
-	qp_attr.sq_psn = DEFAULT_PSN;
+	qp_attr.sq_psn   = config.psn;
 
 	flags = IBV_QP_STATE | IBV_QP_SQ_PSN;
 	rc = ibv_modify_qp(qp, &qp_attr, flags);

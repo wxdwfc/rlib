@@ -11,11 +11,11 @@ namespace rdmaio {
 
 class UDRecvManager {
  public:
-  UDRecvManager(RUDQP *qp,int max_recv_num,MemoryAttr local_mr):
+  UDRecvManager(UDQP *qp,int max_recv_num,MemoryAttr local_mr):
       qp_(qp),max_recv_num_(max_recv_num)
   {
-    RDMA_ASSERT(max_recv_num_ <= UDQPImpl::UD_MAX_RECV_SIZE)
-        << "UD can register at most " << UDQPImpl::UD_MAX_RECV_SIZE << "buffers.";
+    RDMA_ASSERT(max_recv_num_ <= UDQPImpl::MAX_RECV_SIZE)
+        << "UD can register at most " << UDQPImpl::MAX_RECV_SIZE << "buffers.";
     // allocate local heap
     RThreadLocalInit();
 
@@ -56,22 +56,21 @@ class UDRecvManager {
 
  protected:
 
-  RUDQP *qp_ = nullptr;
+  UDQP *qp_ = nullptr;
 
   int recv_head_ = 0;
   int idle_recv_num_ = 0;
   int max_idle_recv_num_ = 1;
   int max_recv_num_ = 0;
 
-  struct ibv_recv_wr rrs_[UDQPImpl::UD_MAX_RECV_SIZE];
-  struct ibv_sge sges_[UDQPImpl::UD_MAX_RECV_SIZE];
-  struct ibv_wc wcs_[UDQPImpl::UD_MAX_RECV_SIZE];
+  struct ibv_recv_wr rrs_[UDQPImpl::MAX_RECV_SIZE];
+  struct ibv_sge sges_[UDQPImpl::MAX_RECV_SIZE];
+  struct ibv_wc wcs_[UDQPImpl::MAX_RECV_SIZE];
   struct ibv_recv_wr *bad_rr_;
 
   void post_recvs(int recv_num) {
 
     if(recv_num <= 0) {
-      assert(false);
       return;
     }
 
@@ -194,7 +193,7 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
 
   void poll_comps() {
 
-    int poll_result = ibv_poll_cq(qp_->recv_cq_,UDQPImpl::UD_MAX_RECV_SIZE,wcs_);
+    int poll_result = ibv_poll_cq(qp_->recv_cq_,UDQPImpl::MAX_RECV_SIZE,wcs_);
     /**
      * The reply messages are batched in this call
      */
@@ -220,13 +219,12 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
   /**
    * sender structures
    */
-  RUDQP *send_qp_ = nullptr;
+  UDQP *send_qp_ = nullptr;
   ibv_send_wr srs_[MAX_UD_SEND_DOORBELL];
   ibv_sge     ssges_[MAX_UD_SEND_DOORBELL];
   struct ibv_send_wr *bad_sr_ = nullptr;
 
   int current_idx_ = 0;
-
 
   static const int RECV_QP_IDX = 1;
   static const int SEND_QP_IDX = 0;

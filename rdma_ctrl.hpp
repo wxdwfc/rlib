@@ -7,7 +7,8 @@
 namespace rdmaio {
 
 const int MAX_SERVER_SUPPORTED = 16;
-typedef UDQP<MAX_SERVER_SUPPORTED> RUDQP;
+typedef RUDQP<default_ud_config,MAX_SERVER_SUPPORTED> UDQP;
+typedef RRCQP<default_rc_config>                      RCQP;
 
 class RdmaCtrl {
  public:
@@ -66,10 +67,10 @@ class RdmaCtrl {
    * If local_attr = nullptr, then this QP is unbind to any MR.
    */
   RCQP *create_rc_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *local_attr = NULL);
-  RUDQP *create_ud_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *local_attr = NULL);
+  UDQP *create_ud_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *local_attr = NULL);
 
   RCQP *get_rc_qp(QPIdx idx);
-  RUDQP *get_ud_qp(QPIdx idx);
+  UDQP *get_ud_qp(QPIdx idx);
 
   /**
    * Some helper functions (example usage of RdmaCtrl)

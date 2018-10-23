@@ -80,7 +80,7 @@ class RdmaCtrl::RdmaCtrlImpl {
 
   RCQP *get_rc_qp(QPIdx idx) {
     lock_.lock();
-    uint64_t qid = ::rdmaio::encode_qp_id(idx.node_id,RC_ID_BASE + idx.worker_id * 64 + idx.index);
+    uint64_t qid = get_rc_key(idx);
     if(qps_.find(qid) == qps_.end()) {
       lock_.unlock();
       return nullptr;
@@ -90,16 +90,16 @@ class RdmaCtrl::RdmaCtrlImpl {
     return dynamic_cast<RCQP *>(res);
   }
 
-  RUDQP *get_ud_qp(QPIdx idx) {
+  UDQP *get_ud_qp(QPIdx idx) {
     lock_.lock();
-    uint64_t qid = ::rdmaio::encode_qp_id(idx.worker_id,UD_ID_BASE + idx.index);
+    uint64_t qid = get_ud_key(idx);
     if(qps_.find(qid) == qps_.end()) {
       lock_.unlock();
       return nullptr;
     }
     QP *res = qps_[qid];
     lock_.unlock();
-    return dynamic_cast<RUDQP *>(res);
+    return dynamic_cast<UDQP *>(res);
   }
 
   RCQP *create_rc_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *attr) {
@@ -107,11 +107,9 @@ class RdmaCtrl::RdmaCtrlImpl {
     RCQP *res = nullptr;
     lock_.lock();
 
-    uint64_t qid = ::rdmaio::encode_qp_id(idx.node_id,RC_ID_BASE + idx.worker_id * 64 + idx.index);
+    uint64_t qid = get_rc_key(idx);
 
     if(qps_.find(qid) != qps_.end()) {
-      //RDMA_LOG(LOG_WARNING) << "create an existing RC QP: "<< nid << " " << wid << " " << idx
-      //<< " " << qid;
       res = dynamic_cast<RCQP *>(qps_[qid]);
       goto END;
     }
@@ -126,21 +124,21 @@ class RdmaCtrl::RdmaCtrlImpl {
     return res;
   }
 
-  RUDQP *create_ud_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *attr) {
+  UDQP *create_ud_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *attr) {
 
-    RUDQP *res = nullptr;
+    UDQP *res = nullptr;
     lock_.lock();
-    uint64_t qid = ::rdmaio::encode_qp_id(idx.worker_id,UD_ID_BASE + idx.index);
+    uint64_t qid = get_ud_key(idx);
 
     if(qps_.find(qid) != qps_.end()) {
-      res = dynamic_cast<RUDQP *>(qps_[qid]);
+      res = dynamic_cast<UDQP *>(qps_[qid]);
       RDMA_LOG(LOG_WARNING) << "create an existing UD QP:" << idx.worker_id << " " << idx.index;
       goto END;
     }
     if(attr == NULL)
-      res = new RUDQP(dev,idx);
+      res = new UDQP(dev,idx);
     else
-      res = new RUDQP(dev,idx,*attr);
+      res = new UDQP(dev,idx,*attr);
     qps_.insert(std::make_pair(qid,res));
  END:
     lock_.unlock();
@@ -219,6 +217,17 @@ class RdmaCtrl::RdmaCtrlImpl {
     if(dev_list != nullptr)
       ibv_free_device_list(dev_list);
     return std::vector<RNicInfo>(cached_infos_.begin(),cached_infos_.end());
+  }
+
+  /**
+   * convert qp idx(node,worker,idx) -> key
+   */
+  uint32_t get_rc_key (const QPIdx idx) {
+    return ::rdmaio::encode_qp_id(idx.node_id,RC_ID_BASE + idx.worker_id * 64 + idx.index);
+  }
+
+  uint32_t get_ud_key(const QPIdx idx) {
+    return ::rdmaio::encode_qp_id(idx.worker_id,UD_ID_BASE + idx.index);
   }
 
   RdmaCtrl::DevIdx convert_port_idx(int idx) {
@@ -311,7 +320,7 @@ class RdmaCtrl::RdmaCtrlImpl {
             case IBV_QPT_UD:
               {
               lock_.unlock();
-              RUDQP *ud_qp = get_ud_qp(create_ud_idx(arg.payload.qp.from_node,arg.payload.qp.from_worker));
+              UDQP *ud_qp = get_ud_qp(create_ud_idx(arg.payload.qp.from_node,arg.payload.qp.from_worker));
               if(ud_qp != nullptr && ud_qp->ready()) {
                 qp = ud_qp;
               }
@@ -480,9 +489,8 @@ RCQP *RdmaCtrl::create_rc_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *attr) {
   return impl_->create_rc_qp(idx,dev,attr);
 }
 
-
 inline __attribute__ ((always_inline))
-RUDQP *RdmaCtrl::create_ud_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *attr) {
+UDQP *RdmaCtrl::create_ud_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *attr) {
   return impl_->create_ud_qp(idx,dev,attr);
 }
 
@@ -492,7 +500,7 @@ RCQP *RdmaCtrl::get_rc_qp(QPIdx idx) {
 }
 
 inline __attribute__ ((always_inline))
-RUDQP *RdmaCtrl::get_ud_qp(QPIdx idx) {
+UDQP *RdmaCtrl::get_ud_qp(QPIdx idx) {
   return impl_->get_ud_qp(idx);
 }
 

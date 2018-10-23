@@ -2,8 +2,8 @@
 
 ### Intro
 
-RLib is a header-only library for **easier** use of RDMA. It is basically a wrapper of the interfaces of libibverbs, 
-while it additionally handles some tedius things, such as establishing connections between servers.
+RLib is a header-only library for **easier** use of RDMA. Basically it is a set of wrappers of the interfaces of `libibverbs`, 
+yet it additionally handles many tedius things, such as establishing connections between RDMA QPs, and simplifies many configurations.
 
 ------
 
@@ -15,8 +15,8 @@ while it additionally handles some tedius things, such as establishing connectio
 
 ### Example
 
-Usually very few lines of code is needed to use RDMA with RLib. Below is a snippet of using RLib to implement a 
-pingpong application using one-sided RDMA primitive.
+Usually very few lines of code are needed to use RDMA with RLib. Below is a snippet of using RLib to implement a 
+simple pingpong application using one-sided RDMA primitive.
 
 Server side
 ```c++
@@ -77,3 +77,6 @@ while(true) {
 }
 
 ```
+
+### Acknowledgments
+TODO

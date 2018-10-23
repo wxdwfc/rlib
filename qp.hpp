@@ -106,26 +106,39 @@ class QP {
   }
 };
 
-#define DEFAULT_RC_INIT_FLAGS  (IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_ATOMIC)
-class RCQP : public QP {
+inline constexpr RCConfig default_rc_config() {
+  return RCConfig {
+    .access_flags       = (IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ | IBV_ACCESS_REMOTE_ATOMIC),
+    .max_rd_atomic      = 16,
+    .max_dest_rd_atomic = 16,
+    .rq_psn             = DEFAULT_PSN,
+    .sq_psn             = DEFAULT_PSN,
+    .timeout            = 20
+  };
+}
+
+/**
+ * Raw RC QP
+ */
+template <RCConfig (*F)(void) = default_rc_config>
+class RRCQP : public QP {
  public:
-  //
-  RCQP(RNicHandler *rnic,QPIdx idx,
-       MemoryAttr local_mr,MemoryAttr remote_mr,int access_flags = DEFAULT_RC_INIT_FLAGS)
-      :RCQP(rnic,idx,access_flags) {
+  RRCQP(RNicHandler *rnic,QPIdx idx,
+       MemoryAttr local_mr,MemoryAttr remote_mr)
+      :RRCQP(rnic,idx) {
     bind_local_mr(local_mr);
     bind_remote_mr(remote_mr);
   }
 
-  RCQP(RNicHandler *rnic,QPIdx idx,MemoryAttr local_mr,int access_flags = DEFAULT_RC_INIT_FLAGS)
-      :RCQP(rnic,idx,access_flags) {
+  RRCQP(RNicHandler *rnic,QPIdx idx,MemoryAttr local_mr)
+      :RRCQP(rnic,idx) {
     bind_local_mr(local_mr);
   }
 
-  RCQP(RNicHandler *rnic,QPIdx idx,int access_flags = DEFAULT_RC_INIT_FLAGS)
+  RRCQP(RNicHandler *rnic,QPIdx idx)
       :QP(rnic,idx)
   {
-    RCQPImpl::init(qp_,cq_,rnic_,access_flags);
+    RCQPImpl::init<F>(qp_,cq_,rnic_);
   }
 
   ConnStatus connect(std::string ip,int port) {
@@ -143,12 +156,12 @@ class RCQP : public QP {
     auto ret = QPImpl::get_remote_helper(&arg,&reply,ip,port);
     if(ret == SUCC) {
       // change QP status
-      if(!RCQPImpl::ready2rcv(qp_,reply.payload.qp,rnic_)) {
+      if(!RCQPImpl::ready2rcv<F>(qp_,reply.payload.qp,rnic_)) {
         RDMA_LOG(LOG_WARNING) << "change qp status to ready to receive error: " << strerror(errno);
         ret = ERR; goto CONN_END;
       }
 
-      if(!RCQPImpl::ready2send(qp_)) {
+      if(!RCQPImpl::ready2send<F>(qp_)) {
         RDMA_LOG(LOG_WARNING) << "change qp status to ready to send error: " << strerror(errno);
         ret = ERR; goto CONN_END;
       }
@@ -254,19 +267,31 @@ class RCQP : public QP {
   MemoryAttr remote_mr_;
 };
 
-template <int MAX_SERVER_NUM = 16>
-class UDQP : public QP {
+inline constexpr UDConfig default_ud_config() {
+  return UDConfig {
+    .max_send_size  = UDQPImpl::MAX_SEND_SIZE,
+    .max_recv_size  = UDQPImpl::MAX_RECV_SIZE,
+    .qkey           = DEFAULT_QKEY,
+    .psn            = DEFAULT_PSN
+ };
+}
+
+/**
+ * Raw UD QP
+ */
+template <UDConfig (*F)(void) = default_ud_config, int MAX_SERVER_NUM = 16>
+class RUDQP : public QP {
   // the QKEY is used to identify UD QP requests
   static const int DEFAULT_QKEY = 0xdeadbeaf;
  public:
-  UDQP(RNicHandler *rnic,QPIdx idx,MemoryAttr local_mr)
-      :UDQP(rnic,idx) {
+  RUDQP(RNicHandler *rnic,QPIdx idx,MemoryAttr local_mr)
+      :RUDQP(rnic,idx) {
     bind_local_mr(local_mr);
   }
 
-  UDQP(RNicHandler *rnic,QPIdx idx)
+  RUDQP(RNicHandler *rnic,QPIdx idx)
       :QP(rnic,idx) {
-    UDQPImpl::init(qp_,cq_,recv_cq_,rnic_);
+    UDQPImpl::init<F>(qp_,cq_,recv_cq_,rnic_);
     std::fill_n(ahs_,MAX_SERVER_NUM,nullptr);
   }
 
@@ -274,7 +299,7 @@ class UDQP : public QP {
     return pendings == 0;
   }
 
-  bool need_poll(int threshold = UDQPImpl::UD_MAX_SEND_SIZE / 2) {
+  bool need_poll(int threshold = UDQPImpl::MAX_SEND_SIZE / 2) {
     return pendings >= threshold;
   }
 

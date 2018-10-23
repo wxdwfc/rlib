@@ -86,4 +86,21 @@ inline int convert_mtu(ibv_mtu type) {
   return mtu;
 }
 
+// The structure used to configure UDQP
+typedef struct {
+  int max_send_size;
+  int max_recv_size;
+  int qkey;
+  int psn;
+} UDConfig;
+
+typedef struct {
+  int access_flags;
+  int max_rd_atomic;
+  int max_dest_rd_atomic;
+  int rq_psn;
+  int sq_psn;
+  int timeout;
+} RCConfig;
+
 } // namespace rdmaio
