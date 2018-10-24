@@ -22,7 +22,9 @@ struct RNicInfo {
   } PortInfo;
 
   RNicInfo(const char *name,int id,ibv_context *ctx):
-      dev_name(name),dev_id(id) {
+      dev_id(id),
+      dev_name(name)
+  {
     query_port_infos(ctx);
     query_active_gids(ctx);
   }
@@ -123,12 +125,18 @@ class RdmaCtrl;
 struct RNicHandler {
 
   RNicHandler(int dev_id,int port_id,ibv_context *ctx,ibv_pd *pd,int lid,int gid = 0):
-      dev_id(dev_id), port_id(port_id),
-      ctx(ctx),pd(pd),lid(lid),gid(gid)
+      dev_id(dev_id),
+      port_id(port_id),
+      ctx(ctx),
+      pd(pd),
+      lid(lid),
+      gid(gid)
   {
   }
 
-  address_t query_addr() { return query_addr(gid); }
+  address_t query_addr() {
+    return query_addr(gid);
+  }
 
   address_t query_addr(uint8_t gid_index) {
 
@@ -148,8 +156,8 @@ struct RNicHandler {
   ~RNicHandler() {
     // delete ctx & pd
     RDMA_VERIFY(LOG_INFO,ibv_close_device(ctx) == 0) << "failed to close device " << dev_id;
-    RDMA_VERIFY(LOG_INFO,ibv_dealloc_pd(pd) == 0) << "failed to dealloc pd at device " << dev_id
-                                             << "; w error " << strerror(errno);
+    RDMA_VERIFY(LOG_INFO,ibv_dealloc_pd(pd) == 0)    << "failed to dealloc pd at device " << dev_id
+                                                     << "; w error " << strerror(errno);
   }
 
  public:
@@ -160,7 +168,6 @@ struct RNicHandler {
   struct ibv_pd      *pd;
   uint16_t lid;
   uint16_t gid;
-
 };
 
 

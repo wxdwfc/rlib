@@ -4,12 +4,47 @@
 
 namespace rdmaio {
 
+/**
+ * Simple critical section
+ * It uses a single global block to guard RdmaCtrl.
+ * This is acceptable, since RdmaCtrl is only the control plane.
+ */
+class SCS {
+ public:
+  SCS() {
+    get_lock().lock();
+  }
+
+  ~SCS() {
+    get_lock().unlock();
+  }
+
+ private:
+  static std::mutex &get_lock() {
+    static std::mutex lock;
+    return lock;
+  }
+};
+
+/**
+ * convert qp idx(node,worker,idx) -> key
+ */
+inline uint32_t get_rc_key (const QPIdx idx) {
+  return ::rdmaio::encode_qp_id(idx.node_id,RC_ID_BASE + idx.worker_id * 64 + idx.index);
+}
+
+inline uint32_t get_ud_key(const QPIdx idx) {
+  return ::rdmaio::encode_qp_id(idx.worker_id,UD_ID_BASE + idx.index);
+}
+
+/**
+ * Control plane of RLib
+ */
 class RdmaCtrl::RdmaCtrlImpl {
  public:
   RdmaCtrlImpl(int node_id, int tcp_base_port,std::string local_ip):
-      lock_(),
-      tcp_base_port_(tcp_base_port),
       node_id_(node_id),
+      tcp_base_port_(tcp_base_port),
       local_ip_(local_ip)
   {
     // start the background thread to handle QP connection request
@@ -79,69 +114,72 @@ class RdmaCtrl::RdmaCtrlImpl {
   }
 
   RCQP *get_rc_qp(QPIdx idx) {
-    lock_.lock();
-    uint64_t qid = get_rc_key(idx);
-    if(qps_.find(qid) == qps_.end()) {
-      lock_.unlock();
-      return nullptr;
-    }
-    QP *res = qps_[qid];
-    lock_.unlock();
-    return dynamic_cast<RCQP *>(res);
+    RCQP *res = nullptr;
+    {
+      SCS s;
+      res = get_qp<RCQP,get_rc_key>(idx);
+    };
+    return res;
   }
 
   UDQP *get_ud_qp(QPIdx idx) {
-    lock_.lock();
-    uint64_t qid = get_ud_key(idx);
-    if(qps_.find(qid) == qps_.end()) {
-      lock_.unlock();
+
+    UDQP *res = nullptr;
+    {
+      SCS s;
+      res = get_qp<UDQP,get_ud_key>(idx);
+    };
+    return res;
+  }
+
+  /**
+   * Note! this is not a thread-safe function
+   */
+  template<class T,uint32_t (*F)(QPIdx)>
+  T *get_qp(QPIdx idx) {
+    uint32_t key = F(idx);
+    if(qps_.find(key) == qps_.end())
       return nullptr;
-    }
-    QP *res = qps_[qid];
-    lock_.unlock();
-    return dynamic_cast<UDQP *>(res);
+    else
+      return dynamic_cast<T *>(qps_[key]);
   }
 
   RCQP *create_rc_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *attr) {
 
     RCQP *res = nullptr;
-    lock_.lock();
-
-    uint64_t qid = get_rc_key(idx);
-
-    if(qps_.find(qid) != qps_.end()) {
-      res = dynamic_cast<RCQP *>(qps_[qid]);
-      goto END;
-    }
-
-    if(attr == NULL)
-      res = new RCQP(dev,idx);
-    else
-      res = new RCQP(dev,idx,*attr);
-    qps_.insert(std::make_pair(qid,res));
- END:
-    lock_.unlock();
+    {
+      SCS s;
+      uint64_t qid = get_rc_key(idx);
+      if(qps_.find(qid) != qps_.end()) {
+        res = dynamic_cast<RCQP *>(qps_[qid]);
+      } else {
+        if(attr == NULL)
+          res = new RCQP(dev,idx);
+        else
+          res = new RCQP(dev,idx,*attr);
+        qps_.insert(std::make_pair(qid,res));
+      }
+    };
     return res;
   }
 
   UDQP *create_ud_qp(QPIdx idx, RNicHandler *dev,MemoryAttr *attr) {
 
     UDQP *res = nullptr;
-    lock_.lock();
     uint64_t qid = get_ud_key(idx);
 
-    if(qps_.find(qid) != qps_.end()) {
-      res = dynamic_cast<UDQP *>(qps_[qid]);
-      RDMA_LOG(LOG_WARNING) << "create an existing UD QP:" << idx.worker_id << " " << idx.index;
-      goto END;
-    }
-    if(attr == NULL)
-      res = new UDQP(dev,idx);
-    else
-      res = new UDQP(dev,idx,*attr);
-    qps_.insert(std::make_pair(qid,res));
- END:
-    lock_.unlock();
+    {
+      SCS s;
+      if(qps_.find(qid) != qps_.end()) {
+        res = dynamic_cast<UDQP *>(qps_[qid]);
+      } else {
+        if(attr == NULL)
+          res = new UDQP(dev,idx);
+        else
+          res = new UDQP(dev,idx,*attr);
+        qps_.insert(std::make_pair(qid,res));
+      }
+    };
     return res;
   }
 
@@ -153,25 +191,25 @@ class RdmaCtrl::RdmaCtrlImpl {
       delete m;
       return false;
     }
-
-    lock_.lock();
-    if(mrs_.find(mr_id) != mrs_.end()) {
-      RDMA_LOG(LOG_WARNING) << "mr " << mr_id << " has already been registered!";
-      delete m;
-    } else {
-      mrs_.insert(std::make_pair(mr_id,m));
-    }
-    lock_.unlock();
-
+    {
+      SCS s;
+      if(mrs_.find(mr_id) != mrs_.end()) {
+        RDMA_LOG(LOG_WARNING) << "mr " << mr_id << " has already been registered!";
+        delete m;
+      } else {
+        mrs_.insert(std::make_pair(mr_id,m));
+      }
+    };
     return true;
   }
 
   MemoryAttr get_local_mr(int mr_id) {
     MemoryAttr attr;
-    lock_.lock();
-    if(mrs_.find(mr_id) != mrs_.end())
-      attr = mrs_[mr_id]->rattr;
-    lock_.unlock();
+    {
+      SCS s;
+      if(mrs_.find(mr_id) != mrs_.end())
+        attr = mrs_[mr_id]->rattr;
+    }
     return attr;
   }
 
@@ -217,17 +255,6 @@ class RdmaCtrl::RdmaCtrlImpl {
     if(dev_list != nullptr)
       ibv_free_device_list(dev_list);
     return std::vector<RNicInfo>(cached_infos_.begin(),cached_infos_.end());
-  }
-
-  /**
-   * convert qp idx(node,worker,idx) -> key
-   */
-  uint32_t get_rc_key (const QPIdx idx) {
-    return ::rdmaio::encode_qp_id(idx.node_id,RC_ID_BASE + idx.worker_id * 64 + idx.index);
-  }
-
-  uint32_t get_ud_key(const QPIdx idx) {
-    return ::rdmaio::encode_qp_id(idx.worker_id,UD_ID_BASE + idx.index);
   }
 
   RdmaCtrl::DevIdx convert_port_idx(int idx) {
@@ -289,7 +316,7 @@ class RdmaCtrl::RdmaCtrlImpl {
         continue;
       }
 
-      if(!PreConnector::wait_recv(csfd,6000)) { RDMA_LOG(3) << "wrong";
+      if(!PreConnector::wait_recv(csfd,6000)) {
         close(csfd);
         continue;
       }
@@ -305,50 +332,49 @@ class RdmaCtrl::RdmaCtrlImpl {
 
       ConnReply reply; reply.ack = ERR;
 
-      lock_.lock();
-      switch(arg.type) {
-        case ConnArg::MR:
-          if(mrs_.find(arg.payload.mr.mr_id) != mrs_.end()) {
-            memcpy((char *)(&(reply.payload.mr)),
-                   (char *)(&(mrs_[arg.payload.mr.mr_id]->rattr)),sizeof(MemoryAttr));
-            reply.ack = SUCC;
+      { // in a global critical section
+        SCS s;
+        switch(arg.type) {
+          case ConnArg::MR:
+            if(mrs_.find(arg.payload.mr.mr_id) != mrs_.end()) {
+              memcpy((char *)(&(reply.payload.mr)),
+                     (char *)(&(mrs_[arg.payload.mr.mr_id]->rattr)),sizeof(MemoryAttr));
+              reply.ack = SUCC;
+            };
+            break;
+          case ConnArg::QP: {
+            QP *qp = NULL;
+            switch(arg.payload.qp.qp_type) {
+              case IBV_QPT_UD:
+                {
+                  UDQP *ud_qp = get_qp<UDQP,get_ud_key>(
+                      create_ud_idx(arg.payload.qp.from_node,arg.payload.qp.from_worker));
+                  if(ud_qp != nullptr && ud_qp->ready()) {
+                    qp = ud_qp;
+                  }
+                }
+                break;
+              case IBV_QPT_RC:
+                {
+                  RCQP *rc_qp = get_qp<RCQP,get_rc_key>(
+                      create_rc_idx(arg.payload.qp.from_node,arg.payload.qp.from_worker));
+                  qp = rc_qp;
+                }
+                break;
+              default:
+                RDMA_LOG(LOG_ERROR) << "unknown QP connection type: " << arg.payload.qp.qp_type;
+            }
+            if(qp != nullptr) {
+              reply.payload.qp = qp->get_attr();
+              reply.ack = SUCC;
+            }
+            reply.payload.qp.node_id = node_id_;
+            break;
           }
-          break;
-        case ConnArg::QP: {
-          QP *qp = NULL;
-          switch(arg.payload.qp.qp_type) {
-            case IBV_QPT_UD:
-              {
-              lock_.unlock();
-              UDQP *ud_qp = get_ud_qp(create_ud_idx(arg.payload.qp.from_node,arg.payload.qp.from_worker));
-              if(ud_qp != nullptr && ud_qp->ready()) {
-                qp = ud_qp;
-              }
-              lock_.lock();
-              }
-              break;
-            case IBV_QPT_RC:
-              {
-                lock_.unlock();
-                QP *rc_qp = get_rc_qp(create_rc_idx(arg.payload.qp.from_node,arg.payload.qp.from_worker));
-                qp = rc_qp;
-                lock_.lock();
-              }
-              break;
-            default:
-              RDMA_LOG(LOG_ERROR) << "unknown QP connection type: " << arg.payload.qp.qp_type;
-          }
-          if(qp != nullptr) {
-            reply.payload.qp = qp->get_attr();
-            reply.ack = SUCC;
-          }
-          reply.payload.qp.node_id = node_id_;
-          break;
+          default:
+            RDMA_LOG(LOG_WARNING) << "received unknown connect type " << arg.type;
         }
-        default:
-          RDMA_LOG(LOG_WARNING) << "received unknown connect type " << arg.type;
-      }
-      lock_.unlock();
+      } // end simple critical section protection
 
       PreConnector::send_to(csfd,(char *)(&reply),sizeof(ConnReply));
       PreConnector::wait_close(csfd); // wait for the client to close the connection
@@ -377,8 +403,6 @@ class RdmaCtrl::RdmaCtrlImpl {
   const int tcp_base_port_;
   const std::string local_ip_;
 
-  std::mutex lock_;
-
   pthread_t handler_tid_;
   bool running_ = true;
 
@@ -392,7 +416,7 @@ class RdmaCtrl::RdmaCtrlImpl {
     for(auto s : cluster) {
       // get the target mr
    retry:
-      MemoryAttr mr;
+      MemoryAttr mr = {};
       auto rc = QP::get_remote_mr(s,tcp_base_port_,mr_id,&mr);
       if(rc != SUCC) {
         usleep(2000);
@@ -400,6 +424,9 @@ class RdmaCtrl::RdmaCtrlImpl {
       }
       mrs.push_back(mr);
     }
+
+    RDMA_ASSERT(mrs.size() == cluster.size());
+
     while(true) {
       int connected = 0, i = 0;
       for(auto s : cluster) {
@@ -408,16 +435,17 @@ class RdmaCtrl::RdmaCtrlImpl {
           i++; connected++;
           continue;
         }
-        RCQP *qp = create_rc_qp(QPIdx { .node_id = i,.worker_id = wid,.index = idx },
+        RCQP *qp = create_rc_qp(QPIdx {.node_id = i,.worker_id = wid,.index = idx },
                                 get_device(),&local_mr);
         RDMA_ASSERT(qp != nullptr);
 
-        qp->bind_remote_mr(mrs[i]);
-
-        if(qp->connect(s,tcp_base_port_) == SUCC) {
-          ready_list[i++] = true;
+        if(qp->connect(s,tcp_base_port_,
+                       QPIdx {.node_id = node_id_,.worker_id = wid, .index = idx}) == SUCC) {
+          ready_list[i] = true;
           connected++;
+          qp->bind_remote_mr(mrs[i]);
         }
+        i++;
       }
       if(connected == cluster.size())
         break;

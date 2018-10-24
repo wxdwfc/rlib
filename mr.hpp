@@ -10,8 +10,8 @@ struct MemoryAttr {
   uint32_t   key;
 };
 
-struct Memory {
-
+class Memory {
+ public:
   /**
    * The default protection flag of a memory region.
    * In default, the memory can be read/write by local and remote RNIC operations.
@@ -19,13 +19,13 @@ struct Memory {
   static const int DEFAULT_PROTECTION_FLAG = (IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | \
                                               IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
 
-
   Memory(char *addr,uint64_t len,ibv_pd *pd,int flag):
-      addr(addr),len(len){
-
-    mr = ibv_reg_mr(pd,addr,len,flag);
+      addr(addr),
+      len(len),
+      mr(ibv_reg_mr(pd,addr,len,flag))
+  {
     if(mr == nullptr) {
-
+      RDMA_LOG(LOG_WARNING) << "failed to register mr, for addr " << addr << "; len " << len;
     } else {
       rattr.buf = (uintptr_t)addr;
       rattr.key = mr->rkey;
@@ -47,7 +47,7 @@ struct Memory {
   uint64_t len;
 
   MemoryAttr rattr;        // RDMA registered attr
-  ibv_mr *mr = NULL;       // mr in the driver
+  ibv_mr *mr = nullptr;    // mr in the driver
 };
 
 

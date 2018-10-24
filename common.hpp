@@ -10,11 +10,12 @@ namespace rdmaio {
 
 // connection status
 enum ConnStatus {
-  SUCC = 0,
-  TIMEOUT,
-  WRONG_ARG,
-  ERR,
-  NOT_READY
+  SUCC         = 0,
+  TIMEOUT      = 1,
+  WRONG_ARG    = 2,
+  ERR          = 3,
+  NOT_READY    = 4,
+  UNKNOWN      = 5
 };
 
 /**
@@ -63,6 +64,13 @@ struct ConnReply {
     MemoryAttr mr;
   } payload;
 };
+
+inline constexpr struct timeval no_timeout() {
+  return timeval {
+    .tv_sec  = 0,
+    .tv_usec = 0
+  };
+}
 
 inline int convert_mtu(ibv_mtu type) {
   int mtu = 0;

@@ -28,11 +28,14 @@ constexpr QPIdx create_ud_idx(int worker_id,int idx = 0) {
   };
 }
 
+/**
+ * Wrappers over ibv_qp & ibv_cq
+ */
 class QP {
  public:
   QP(RNicHandler *rnic,QPIdx idx):
-      rnic_(rnic),
-      idx_(idx)
+      idx_(idx),
+      rnic_(rnic)
   {
   }
 
@@ -71,12 +74,12 @@ class QP {
 
   QPAttr get_attr() {
     QPAttr res = {
-      .addr = rnic_->query_addr(),
-      .lid  = rnic_->lid,
-      .qpn  = (qp_ != nullptr)?qp_->qp_num:0,
-      .psn  = DEFAULT_PSN,
-      .node_id = 0, // a place holder
-      .port_id = rnic_->port_id
+      .addr     = rnic_->query_addr(),
+      .lid      = rnic_->lid,
+      .qpn      = (qp_ != nullptr)?qp_->qp_num:0,
+      .psn      = DEFAULT_PSN, // TODO! this may be filled later
+      .node_id  = 0, // a place holder
+      .port_id  = rnic_->port_id
     };
     return res;
   }
@@ -147,23 +150,31 @@ class RRCQP : public QP {
 
   ConnStatus connect(std::string ip,int port,QPIdx idx) {
 
-    ConnArg arg; ConnReply reply;
+    // first check whether QP is valid to connect
+    enum ibv_qp_state state;
+    if( (state = QPImpl::query_qp_status(qp_)) != IBV_QPS_INIT) {
+      RDMA_LOG(LOG_WARNING) << "qp not in a connect state to connect!";
+      return (state == IBV_QPS_RTS)?SUCC:UNKNOWN;
+    }
+    ConnArg arg = {} ; ConnReply reply = {};
     arg.type = ConnArg::QP;
     arg.payload.qp.from_node   = idx.node_id;
     arg.payload.qp.from_worker = idx.worker_id;
-    arg.payload.qp.qp_type = IBV_QPT_RC;
+    arg.payload.qp.qp_type     = IBV_QPT_RC;
 
     auto ret = QPImpl::get_remote_helper(&arg,&reply,ip,port);
     if(ret == SUCC) {
       // change QP status
       if(!RCQPImpl::ready2rcv<F>(qp_,reply.payload.qp,rnic_)) {
         RDMA_LOG(LOG_WARNING) << "change qp status to ready to receive error: " << strerror(errno);
-        ret = ERR; goto CONN_END;
+        ret = ERR;
+        goto CONN_END;
       }
 
       if(!RCQPImpl::ready2send<F>(qp_)) {
         RDMA_LOG(LOG_WARNING) << "change qp status to ready to send error: " << strerror(errno);
-        ret = ERR; goto CONN_END;
+        ret = ERR;
+        goto CONN_END;
       }
     }
  CONN_END:

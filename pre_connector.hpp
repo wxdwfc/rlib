@@ -14,7 +14,7 @@
 
 namespace rdmaio {
 
-constexpr struct timeval default_timeout = {0,2000};
+constexpr struct timeval default_timeout = {0,8000};
 
 inline __attribute__ ((always_inline)) // inline to avoid multiple-definiations
 int64_t diff_time(struct timeval &end, struct timeval &start) {

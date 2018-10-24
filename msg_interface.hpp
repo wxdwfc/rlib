@@ -38,11 +38,11 @@ class MsgAdapter {
   }
 
   virtual ConnStatus send_pending(int node_id,char *msg,int len) {
-    return send_to(node_id,msg,len);
+    RDMA_ASSERT(false); // not implemented
   }
 
   virtual ConnStatus send_pending(int node_id,int tid,char *msg,int len) {
-    return send_to(node_id,tid,msg,len);
+    return send_pending(node_id,msg,len);
   }
 
   /**

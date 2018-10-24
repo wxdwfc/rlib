@@ -20,6 +20,10 @@ simple pingpong application using one-sided RDMA primitive.
 
 Server side
 ```c++
+/**
+ * Note, RDMA usually uses some other communication method (e.g. TCP/IP) to exchange QP informations.
+ * RLib uses TCP for the pre-communication.
+ */
 int server_node_id = 1;
 int tcp_port       = 8888;
 

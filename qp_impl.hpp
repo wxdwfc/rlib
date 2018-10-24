@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+
 #include "pre_connector.hpp"
 
 namespace rdmaio {
@@ -44,8 +46,18 @@ inline uint32_t decode_qp_index(uint32_t key) {
 
 class QPImpl {
  public:
-  QPImpl() = default;
+  QPImpl()  = default;
   ~QPImpl() = default;
+
+  static enum ibv_qp_state query_qp_status(ibv_qp *qp) {
+    struct ibv_qp_attr attr;
+    struct ibv_qp_init_attr init_attr;
+
+    if (ibv_query_qp(qp, &attr,IBV_QP_STATE, &init_attr)) {
+      RDMA_ASSERT(false) << "query qp cannot cause error";
+    }
+    return attr.qp_state;
+  }
 
   static ConnStatus get_remote_helper(ConnArg *arg, ConnReply *reply,std::string ip,int port) {
 
@@ -98,18 +110,21 @@ class QPImpl {
 
     struct timeval start_time; gettimeofday (&start_time, NULL);
     int poll_result = 0; int64_t diff;
+    int64_t numeric_timeout = (timeout.tv_sec == 0 && timeout.tv_usec == 0) ? std::numeric_limits<int64_t>::max() :
+                              timeout.tv_sec * 1000 + timeout.tv_usec;
     do {
+      //  RDMA_LOG(4) << "polled"; sleep(1);
+      asm volatile("" ::: "memory");
       poll_result = ibv_poll_cq (cq, 1, &wc);
 
       struct timeval cur_time; gettimeofday(&cur_time,NULL);
       diff = diff_time(cur_time,start_time);
-
-    } while( (poll_result == 0) && (diff <= (timeout.tv_sec * 1000 + timeout.tv_usec)));
+    } while((poll_result == 0) && (diff <= numeric_timeout));
 
     if(poll_result == 0) {
-      RDMA_ASSERT(false);
       return TIMEOUT;
     }
+
     if(poll_result < 0) {
       RDMA_ASSERT(false);
       return ERR;
@@ -178,6 +193,7 @@ class RCQPImpl {
                 | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_MIN_RNR_TIMER;
     auto rc = ibv_modify_qp(qp, &qp_attr,flags);
     return rc == 0;
+
   }
 
   template <RCConfig (*F)(void)>
@@ -264,8 +280,8 @@ class UDQPImpl {
 	qp_init_attr.recv_cq = recv_cq;
 	qp_init_attr.qp_type = IBV_QPT_UD;
 
-	qp_init_attr.cap.max_send_wr = config.max_send_size;
-	qp_init_attr.cap.max_recv_wr = config.max_recv_size;
+	qp_init_attr.cap.max_send_wr  = config.max_send_size;
+	qp_init_attr.cap.max_recv_wr  = config.max_recv_size;
 	qp_init_attr.cap.max_send_sge = 1;
 	qp_init_attr.cap.max_recv_sge = 1;
 	qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
@@ -277,16 +293,13 @@ class UDQPImpl {
 
     // change QP status
 	ready2init(qp, rnic,config); // shall always succeed
-#if 1
+
 	if(!ready2rcv(qp,rnic)) {
       RDMA_LOG(LOG_WARNING) << "change ud qp to ready to recv error: " << strerror(errno);
     }
-#endif
-#if 2
 	if(!ready2send(qp,config)) {
       RDMA_LOG(LOG_WARNING) << "change ud qp to ready to send error: " << strerror(errno);
     }
-#endif
   }
 
   /**

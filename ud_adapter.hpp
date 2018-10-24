@@ -137,6 +137,7 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
     ssges_[0].addr = (uint64_t)msg;
     ssges_[0].length = len;
 
+
     if(send_qp_->need_poll()) {
       ibv_wc wc; auto ret = send_qp_->poll_till_completion(wc);
       RDMA_ASSERT(ret == SUCC) << "poll UD completion reply error: " << ret;
@@ -165,7 +166,6 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
                          | ((len < MAX_INLINE_SIZE) ? IBV_SEND_INLINE : 0);
 
     if(send_qp_->need_poll()) {
-      RDMA_LOG(4) << "need poll ";
       ibv_wc wc;auto ret = send_qp_->poll_till_completion(wc);
       RDMA_ASSERT(ret == SUCC) << "poll UD completion reply error: " << ret;
       send_qp_->pendings = 0;

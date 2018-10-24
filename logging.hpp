@@ -27,14 +27,16 @@ namespace rdmaio {
  *   Log everything
  */
 
-#define LOG_NONE 7
-#define LOG_FATAL 6
-#define LOG_ERROR 5
-#define LOG_WARNING 4
-#define LOG_EMPH 3
-#define LOG_INFO 2
-#define LOG_DEBUG 1
-#define LOG_EVERYTHING 0
+enum loglevel {
+  LOG_NONE       = 7,
+  LOG_FATAL      = 6,
+  LOG_ERROR      = 5,
+  LOG_WARNING    = 4,
+  LOG_EMPH       = 3,
+  LOG_INFO       = 2,
+  LOG_DEBUG      = 1,
+  LOG_EVERYTHING = 0
+};
 
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
@@ -60,7 +62,7 @@ namespace rdmaio {
 
 #define RDMA_ASSERT(condition)                                               \
   if(unlikely(!(condition)))                                            \
-    ::rdmaio::MessageLogger((char*)__FILE__, __LINE__, LOG_FATAL + 1).stream() << "Assertion! "
+    ::rdmaio::MessageLogger((char*)__FILE__, __LINE__, ::rdmaio::LOG_FATAL + 1).stream() << "Assertion! "
 
 #define RDMA_VERIFY(n,condition) RDMA_LOG_IF(n,(!(condition)))
 
@@ -77,7 +79,7 @@ class MessageLogger {
       stream_ << "\n";
       std::cout << "\033[" << RDMA_DEBUG_LEVEL_COLOR[std::min(level_,6)] << "m"
                 << stream_.str() << EndcolorFlag();
-      if(level_ >= LOG_FATAL)
+      if(level_ >= ::rdmaio::LOG_FATAL)
         abort();
     }
   }
