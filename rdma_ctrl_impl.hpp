@@ -278,11 +278,19 @@ class RdmaCtrl::RdmaCtrlImpl {
     return DevIdx {.dev_id = -1,.port_id = -1};
   }
 
-  RNicHandler *get_device() { return rnic_instance();}
+  RNicHandler *get_device() {
+    return rnic_instance();
+  }
 
-  void close_device() { if(rnic_instance() != nullptr) delete rnic_instance(); rnic_instance() = nullptr;}
+  void close_device() {
+    if(rnic_instance() != nullptr) delete rnic_instance();
+    rnic_instance() = nullptr;
+  }
 
-  void close_device(RNicHandler *rnic) { if(rnic != nullptr) delete rnic; }
+  void close_device(RNicHandler *rnic) {
+    if(rnic != nullptr)
+      delete rnic;
+  }
 
   static void *connection_handler_wrapper(void *context)
   {

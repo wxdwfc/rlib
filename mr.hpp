@@ -17,7 +17,7 @@ class Memory {
    * In default, the memory can be read/write by local and remote RNIC operations.
    */
   static const int DEFAULT_PROTECTION_FLAG = (IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | \
-                                              IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC);
+                                              IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC );
 
   Memory(char *addr,uint64_t len,ibv_pd *pd,int flag):
       addr(addr),

@@ -148,10 +148,10 @@ class RCQPImpl {
     auto config = F();
 
     struct ibv_qp_attr qp_attr = {};
-    qp_attr.qp_state = IBV_QPS_INIT;
-    qp_attr.pkey_index = 0;
-    qp_attr.port_num = rnic->port_id;
-    qp_attr.qp_access_flags = config.access_flags;
+    qp_attr.qp_state           = IBV_QPS_INIT;
+    qp_attr.pkey_index         = 0;
+    qp_attr.port_num           = rnic->port_id;
+    qp_attr.qp_access_flags    = config.access_flags;
 
     int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
     int rc = ibv_modify_qp(qp, &qp_attr,flags);

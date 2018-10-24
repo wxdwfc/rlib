@@ -5,6 +5,11 @@
 
 namespace rdmaio {
 
+/**
+ * The QP managed by RLib is identified by the QPIdx
+ * Basically it identifies which worker(thread) is using the QP,
+ * and which machine this QP is connected to.
+ */
 typedef struct {
   int node_id;   // the node QP connect to
   int worker_id; // the thread/task QP belongs
@@ -69,10 +74,10 @@ class QP {
   }
 
   void bind_local_mr(MemoryAttr attr) {
-    memcpy(&local_mr_,&attr,sizeof(MemoryAttr));
+    local_mr_ = attr;
   }
 
-  QPAttr get_attr() {
+  QPAttr get_attr() const {
     QPAttr res = {
       .addr     = rnic_->query_addr(),
       .lid      = rnic_->lid,
@@ -187,7 +192,7 @@ class RRCQP : public QP {
    * so it is more convenient to use a bind-post;bind-post-post fashion.
    */
   void bind_remote_mr(MemoryAttr attr) {
-    memcpy(&remote_mr_,&attr,sizeof(MemoryAttr));
+    remote_mr_ = attr;
   }
 
   /**
@@ -208,13 +213,13 @@ class RRCQP : public QP {
 
     // setting sr, sr has to be initilized in this style
     struct ibv_send_wr sr;
-    sr.wr_id = wr_id;
-    sr.opcode = op;
-    sr.num_sge = 1;
-    sr.next = NULL;
-    sr.sg_list = &sge;
-    sr.send_flags = flags;
-    sr.imm_data = imm;
+    sr.wr_id        = wr_id;
+    sr.opcode       = op;
+    sr.num_sge      = 1;
+    sr.next         = NULL;
+    sr.sg_list      = &sge;
+    sr.send_flags   = flags;
+    sr.imm_data     = imm;
     sr.wr.rdma.remote_addr = (off + remote_mr_.buf);
     sr.wr.rdma.rkey = remote_mr_.key;
 
@@ -222,9 +227,28 @@ class RRCQP : public QP {
     return rc == 0 ? SUCC : ERR;
   }
 
-  // one-sided compare and swap
+  // one-sided atomic operations
   ConnStatus post_cas(char *local_buf,uint64_t off,
                       uint64_t compare,uint64_t swap,int flags,uint64_t wr_id = 0) {
+    return post_atomic<IBV_WR_ATOMIC_CMP_AND_SWP>(local_buf,off,compare,swap,flags,wr_id);
+  }
+
+  // one-sided fetch and add
+  ConnStatus post_faa(char *local_buf,uint64_t off,uint64_t add_value,int flags,int wr_id = 0) {
+    return post_atomic<IBV_WR_ATOMIC_FETCH_AND_ADD>(local_buf,off,add_value,0 /* no swap value is needed*/,flags,wr_id);
+  }
+
+  template <ibv_wr_opcode type>
+  ConnStatus post_atomic(char *local_buf,uint64_t off,
+                         uint64_t compare,uint64_t swap,int flags,uint64_t wr_id = 0) {
+    static_assert(type == IBV_WR_ATOMIC_CMP_AND_SWP || type == IBV_WR_ATOMIC_FETCH_AND_ADD,
+                  "only two atomic operations are currently supported.");
+
+    // check if address (off) is 8-byte aligned
+    if((off & 0x7) != 0) {
+      return WRONG_ARG;
+    }
+
     ConnStatus ret = SUCC;
     struct ibv_send_wr *bad_sr;
 
@@ -236,16 +260,17 @@ class RRCQP : public QP {
           };
 
     struct ibv_send_wr sr;
-    sr.opcode = IBV_WR_ATOMIC_CMP_AND_SWP;
-    sr.num_sge = 1;
-    sr.next = NULL;
-    sr.sg_list = &sge;
-    sr.send_flags = flags;
+    sr.wr_id        = wr_id;
+    sr.opcode       = type;
+    sr.num_sge      = 1;
+    sr.next         = NULL;
+    sr.sg_list      = &sge;
+    sr.send_flags   = flags;
     // remote memory
-    sr.wr.rdma.rkey = remote_mr_.key;
-    sr.wr.rdma.remote_addr = (off + remote_mr_.buf);
-	sr.wr.atomic.compare_add = compare;
-	sr.wr.atomic.swap = swap;
+    sr.wr.atomic.rkey          = remote_mr_.key;
+    sr.wr.atomic.remote_addr   = (off + remote_mr_.buf);
+	sr.wr.atomic.compare_add   = compare;
+	sr.wr.atomic.swap          = swap;
 
     auto rc = ibv_post_send(qp_,&sr,&bad_sr);
     return rc == 0 ? SUCC : ERR;

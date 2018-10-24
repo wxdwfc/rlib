@@ -65,13 +65,6 @@ struct ConnReply {
   } payload;
 };
 
-inline constexpr struct timeval no_timeout() {
-  return timeval {
-    .tv_sec  = 0,
-    .tv_usec = 0
-  };
-}
-
 inline int convert_mtu(ibv_mtu type) {
   int mtu = 0;
   switch(type) {
