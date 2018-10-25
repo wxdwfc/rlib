@@ -18,7 +18,10 @@ class RdmaCtrl {
   int current_node_id();
   int listening_port();
 
-  typedef struct { int dev_id; int port_id; } DevIdx;
+  typedef struct {
+    int dev_id;
+    int port_id;
+  } DevIdx;
 
   /**
    * Query devices info on this machine,

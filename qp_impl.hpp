@@ -113,7 +113,6 @@ class QPImpl {
     int64_t numeric_timeout = (timeout.tv_sec == 0 && timeout.tv_usec == 0) ? std::numeric_limits<int64_t>::max() :
                               timeout.tv_sec * 1000 + timeout.tv_usec;
     do {
-      //  RDMA_LOG(4) << "polled"; sleep(1);
       asm volatile("" ::: "memory");
       poll_result = ibv_poll_cq (cq, 1, &wc);
 
@@ -129,7 +128,8 @@ class QPImpl {
       RDMA_ASSERT(false);
       return ERR;
     }
-    RDMA_ASSERT(wc.status == IBV_WC_SUCCESS);
+    RDMA_ASSERT(wc.status == IBV_WC_SUCCESS) <<
+        "poll till completion error: " << wc.status << " " << ibv_wc_status_str(wc.status);
     return SUCC;
   }
 };

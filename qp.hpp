@@ -220,7 +220,7 @@ class RRCQP : public QP {
     sr.sg_list      = &sge;
     sr.send_flags   = flags;
     sr.imm_data     = imm;
-    sr.wr.rdma.remote_addr = (off + remote_mr_.buf);
+    sr.wr.rdma.remote_addr = (remote_mr_.buf + off);
     sr.wr.rdma.rkey = remote_mr_.key;
 
     auto rc = ibv_post_send(qp_,&sr,&bad_sr);
