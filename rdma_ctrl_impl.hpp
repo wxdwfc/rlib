@@ -309,7 +309,7 @@ class RdmaCtrl::RdmaCtrlImpl {
     int opt = 1;
     RDMA_VERIFY(LOG_ERROR,setsockopt(listenfd,SOL_SOCKET,SO_REUSEADDR | SO_REUSEPORT,&opt,sizeof(int)) == 0)
         << "unable to configure socket status.";
-    RDMA_VERIFY(LOG_ERROR,listen(listenfd,24) == 0) << "TCP listen error: " << strerror(errno);
+    RDMA_VERIFY(LOG_ERROR,listen(listenfd,2048) == 0) << "TCP listen error: " << strerror(errno);
 
     while(running_) {
 
