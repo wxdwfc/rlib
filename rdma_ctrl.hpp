@@ -64,6 +64,13 @@ class RdmaCtrl {
   MemoryAttr get_local_mr(int mr_id);
 
   /**
+   * Return an arbitrary registered MR
+   * return -1 if no MR is registered to RdmaCtrl
+   * return the first mr index, if found one
+   */
+  int get_default_mr(MemoryAttr &attr);
+
+  /**
    * Create and query QPs
    * For create, an optional local_attr can be provided to bind to this QP
    * A local MR is passed as the default local mr for this QP.

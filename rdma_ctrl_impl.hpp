@@ -203,6 +203,15 @@ class RdmaCtrl::RdmaCtrlImpl {
     return true;
   }
 
+  int get_default_mr(MemoryAttr &attr) {
+    SCS s;
+    for(auto it = mrs_.begin();it != mrs_.end();++it) {
+      int idx = it->first; attr = it->second->rattr;
+      return idx;
+    }
+    return -1;
+  }
+
   MemoryAttr get_local_mr(int mr_id) {
     MemoryAttr attr;
     {
@@ -309,7 +318,7 @@ class RdmaCtrl::RdmaCtrlImpl {
     int opt = 1;
     RDMA_VERIFY(LOG_ERROR,setsockopt(listenfd,SOL_SOCKET,SO_REUSEADDR | SO_REUSEPORT,&opt,sizeof(int)) == 0)
         << "unable to configure socket status.";
-    RDMA_VERIFY(LOG_ERROR,listen(listenfd,2048) == 0) << "TCP listen error: " << strerror(errno);
+    RDMA_VERIFY(LOG_ERROR,listen(listenfd,24) == 0) << "TCP listen error: " << strerror(errno);
 
     while(running_) {
 
@@ -518,6 +527,11 @@ bool RdmaCtrl::register_memory(int id,char *buf,uint64_t size,RNicHandler *rnic,
 inline __attribute__ ((always_inline))
 MemoryAttr RdmaCtrl::get_local_mr(int mr_id) {
   return impl_->get_local_mr(mr_id);
+}
+
+inline __attribute__ ((always_inline))
+int RdmaCtrl::get_default_mr(MemoryAttr &attr) {
+  return impl_->get_default_mr(attr);
 }
 
 inline __attribute__ ((always_inline))
