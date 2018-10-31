@@ -35,6 +35,7 @@ constexpr QPIdx create_ud_idx(int worker_id,int idx = 0) {
 
 /**
  * Wrappers over ibv_qp & ibv_cq
+ * For easy use, and connect
  */
 class QP {
  public:
@@ -195,12 +196,8 @@ class RRCQP : public QP {
     remote_mr_ = attr;
   }
 
-  /**
-   * Post request(s) to the sending QP.
-   * This is just a wrapper of ibv_post_send
-   */
-  ConnStatus post_send(ibv_wr_opcode op,char *local_buf,uint32_t len,uint64_t off,int flags,
-                       uint64_t wr_id = 0, uint32_t imm = 0) {
+  ConnStatus post_send_to_mr(MemoryAttr &mr,ibv_wr_opcode op,char *local_buf,uint32_t len,uint64_t off,int flags,
+                             uint64_t wr_id = 0, uint32_t imm = 0) {
     ConnStatus ret = SUCC;
     struct ibv_send_wr *bad_sr;
 
@@ -220,11 +217,21 @@ class RRCQP : public QP {
     sr.sg_list      = &sge;
     sr.send_flags   = flags;
     sr.imm_data     = imm;
-    sr.wr.rdma.remote_addr = (remote_mr_.buf + off);
-    sr.wr.rdma.rkey = remote_mr_.key;
+
+    sr.wr.rdma.remote_addr = mr_.buf + off;
+    sr.wr.rdma.rkey        = mr_.key;
 
     auto rc = ibv_post_send(qp_,&sr,&bad_sr);
     return rc == 0 ? SUCC : ERR;
+  }
+
+  /**
+   * Post request(s) to the sending QP.
+   * This is just a wrapper of ibv_post_send
+   */
+  ConnStatus post_send(ibv_wr_opcode op,char *local_buf,uint32_t len,uint64_t off,int flags,
+                       uint64_t wr_id = 0, uint32_t imm = 0) {
+    return post_send_to_mr(remote_mr_,op,local_buf,len,off,flags,wr_id,imm);
   }
 
   // one-sided atomic operations
