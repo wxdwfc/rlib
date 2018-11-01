@@ -33,7 +33,7 @@ class Memory {
   }
 
   ~Memory() {
-    if(mr != NULL) {
+    if(mr != nullptr) {
       int rc = ibv_dereg_mr(mr);
       RDMA_LOG_IF(LOG_ERROR,rc != 0) << "dereg mr error: " << strerror(errno);
     }
