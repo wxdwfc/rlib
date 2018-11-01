@@ -59,11 +59,19 @@ class RdmaCtrl::RdmaCtrlImpl {
     RDMA_LOG(LOG_INFO) << "rdma controler close: does not handle any future connections.";
   }
 
-  RNicHandler *open_device(DevIdx idx) {
-
+  RNicHandler *open_thread_local_device(DevIdx idx) {
     // already openend device
     if(rnic_instance() != nullptr)
       return rnic_instance();
+
+    auto handler = open_device(idx);
+    rnic_instance() = handler;
+    return rnic_instance();
+  }
+
+  RNicHandler *open_device(DevIdx idx) {
+
+    RNicHandler *rnic = nullptr;
 
     struct ibv_device **dev_list = nullptr; struct ibv_context *ib_ctx = nullptr; struct ibv_pd *pd = nullptr; int num_devices;
     int rc;  // return code
@@ -102,15 +110,13 @@ class RdmaCtrl::RdmaCtrlImpl {
 
     // success open
     {
-      RNicHandler *h = new RNicHandler(idx.dev_id,idx.port_id,ib_ctx,pd,port_attr.lid);
-      RDMA_ASSERT(h != NULL);
-      rnic_instance() = h;
+      rnic = new RNicHandler(idx.dev_id,idx.port_id,ib_ctx,pd,port_attr.lid);
     }
 
  OPEN_END:
     if(dev_list != nullptr)
       ibv_free_device_list(dev_list);
-    return rnic_instance();
+    return rnic;
   }
 
   RCQP *get_rc_qp(QPIdx idx) {
@@ -497,6 +503,11 @@ void RdmaCtrl::clear_dev_info() {
 inline __attribute__ ((always_inline))
 RNicHandler *RdmaCtrl::get_device() {
   return impl_->get_device();
+}
+
+inline __attribute__ ((always_inline))
+RNicHandler *RdmaCtrl::open_thread_local_device(DevIdx idx) {
+  return impl_->open_thread_local_device(idx);
 }
 
 inline __attribute__ ((always_inline))

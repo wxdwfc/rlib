@@ -70,7 +70,7 @@ class QP {
 
   // return until the completion events
   // this call will block until a timeout
-  ConnStatus poll_till_completion(ibv_wc &wc, struct timeval timeout = default_timeout) {
+  virtual ConnStatus poll_till_completion(ibv_wc &wc, struct timeval timeout = default_timeout) {
     return QPImpl::poll_till_completion(cq_,wc,timeout);
   }
 
@@ -196,7 +196,8 @@ class RRCQP : public QP {
     remote_mr_ = attr;
   }
 
-  ConnStatus post_send_to_mr(MemoryAttr &mr,ibv_wr_opcode op,char *local_buf,uint32_t len,uint64_t off,int flags,
+  ConnStatus post_send_to_mr(MemoryAttr &local_mr,MemoryAttr &remote_mr,
+                             ibv_wr_opcode op,char *local_buf,uint32_t len,uint64_t off,int flags,
                              uint64_t wr_id = 0, uint32_t imm = 0) {
     ConnStatus ret = SUCC;
     struct ibv_send_wr *bad_sr;
@@ -205,7 +206,7 @@ class RRCQP : public QP {
     struct ibv_sge sge {
       .addr = (uint64_t)local_buf,
           .length = len,
-          .lkey   = local_mr_.key
+          .lkey   = local_mr.key
           };
 
     // setting sr, sr has to be initilized in this style
@@ -218,8 +219,8 @@ class RRCQP : public QP {
     sr.send_flags   = flags;
     sr.imm_data     = imm;
 
-    sr.wr.rdma.remote_addr = mr_.buf + off;
-    sr.wr.rdma.rkey        = mr_.key;
+    sr.wr.rdma.remote_addr = remote_mr.buf + off;
+    sr.wr.rdma.rkey        = remote_mr.key;
 
     auto rc = ibv_post_send(qp_,&sr,&bad_sr);
     return rc == 0 ? SUCC : ERR;
@@ -231,7 +232,7 @@ class RRCQP : public QP {
    */
   ConnStatus post_send(ibv_wr_opcode op,char *local_buf,uint32_t len,uint64_t off,int flags,
                        uint64_t wr_id = 0, uint32_t imm = 0) {
-    return post_send_to_mr(remote_mr_,op,local_buf,len,off,flags,wr_id,imm);
+    return post_send_to_mr(local_mr_,remote_mr_,op,local_buf,len,off,flags,wr_id,imm);
   }
 
   // one-sided atomic operations
@@ -293,6 +294,14 @@ class RRCQP : public QP {
    */
   int poll_send_completion(ibv_wc &wc) {
     return ibv_poll_cq(cq_,1,&wc);
+  }
+
+  ConnStatus poll_till_completion(ibv_wc &wc,struct timeval timeout = default_timeout) {
+    auto ret = QP::poll_till_completion(wc,timeout);
+    if(ret == SUCC) {
+      low_watermark_ = high_watermark_;
+    }
+    return ret;
   }
 
   /**

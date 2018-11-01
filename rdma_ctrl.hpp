@@ -37,6 +37,8 @@ class RdmaCtrl {
    * RdmaCtrl opens a device for each thread.
    * The get_device returns previously opened device of this thread, if it is already opened
    */
+  RNicHandler *open_thread_local_device(DevIdx idx);
+
   RNicHandler *open_device(DevIdx idx);
 
   RNicHandler *get_device();
