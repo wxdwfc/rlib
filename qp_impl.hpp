@@ -108,7 +108,7 @@ class QPImpl {
 
   static ConnStatus poll_till_completion(ibv_cq *cq,ibv_wc &wc, struct timeval timeout) {
 
-    struct timeval start_time; gettimeofday (&start_time, NULL);
+    struct timeval start_time; gettimeofday (&start_time, nullptr);
     int poll_result = 0; int64_t diff;
     int64_t numeric_timeout = (timeout.tv_sec == 0 && timeout.tv_usec == 0) ? std::numeric_limits<int64_t>::max() :
                               timeout.tv_sec * 1000 + timeout.tv_usec;
@@ -116,7 +116,7 @@ class QPImpl {
       asm volatile("" ::: "memory");
       poll_result = ibv_poll_cq (cq, 1, &wc);
 
-      struct timeval cur_time; gettimeofday(&cur_time,NULL);
+      struct timeval cur_time; gettimeofday(&cur_time,nullptr);
       diff = diff_time(cur_time,start_time);
     } while((poll_result == 0) && (diff <= numeric_timeout));
 
@@ -222,8 +222,8 @@ class RCQPImpl {
   static void init(ibv_qp *&qp,ibv_cq *&cq,RNicHandler *rnic) {
 
     // create the CQ
-    cq = ibv_create_cq(rnic->ctx, RC_MAX_SEND_SIZE, NULL, NULL, 0);
-    RDMA_VERIFY(LOG_WARNING,cq != NULL) << "create cq error: " << strerror(errno);
+    cq = ibv_create_cq(rnic->ctx, RC_MAX_SEND_SIZE, nullptr, nullptr, 0);
+    RDMA_VERIFY(LOG_WARNING,cq != nullptr) << "create cq error: " << strerror(errno);
 
     // create the QP
     struct ibv_qp_init_attr qp_init_attr = {};
@@ -239,7 +239,7 @@ class RCQPImpl {
     qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
 
     qp = ibv_create_qp(rnic->pd, &qp_init_attr);
-    RDMA_VERIFY(LOG_WARNING,qp != NULL);
+    RDMA_VERIFY(LOG_WARNING,qp != nullptr);
 
     if(qp)
       ready2init<F>(qp,rnic);
@@ -264,12 +264,12 @@ class UDQPImpl {
     if(qp != nullptr)
       return;
 
-	if((cq = ibv_create_cq(rnic->ctx, config.max_send_size, NULL, NULL, 0)) == NULL) {
+	if((cq = ibv_create_cq(rnic->ctx, config.max_send_size, nullptr, nullptr, 0)) == nullptr) {
       RDMA_LOG(LOG_ERROR) << "create send cq for UD QP error: " << strerror(errno);
       return;
     }
 
-	if((recv_cq = ibv_create_cq(rnic->ctx, config.max_recv_size, NULL, NULL, 0)) == NULL) {
+	if((recv_cq = ibv_create_cq(rnic->ctx, config.max_recv_size, nullptr, nullptr, 0)) == nullptr) {
       RDMA_LOG(LOG_ERROR) << "create recv cq for UD QP error: " << strerror(errno);
       return;
     }
