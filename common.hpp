@@ -46,7 +46,7 @@ struct QPConnArg {
  * The MR connection requests sent to remote.
  */
 struct MRConnArg {
-  uint16_t mr_id;
+  uint64_t mr_id;
 };
 
 struct ConnArg {

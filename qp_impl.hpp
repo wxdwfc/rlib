@@ -129,9 +129,9 @@ class QPImpl {
       RDMA_ASSERT(false);
       return ERR;
     }
-    RDMA_ASSERT(wc.status == IBV_WC_SUCCESS) <<
+    RDMA_LOG_IF(4,wc.status != IBV_WC_SUCCESS) <<
         "poll till completion error: " << wc.status << " " << ibv_wc_status_str(wc.status);
-    return SUCC;
+    return wc.status == IBV_WC_SUCCESS ? SUCC : ERR;
   }
 };
 
