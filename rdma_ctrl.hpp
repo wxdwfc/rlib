@@ -29,6 +29,8 @@ class RdmaCtrl {
    */
   std::vector<RNicInfo> query_devs();
 
+  static std::vector<RNicInfo> query_devs_helper();
+
   // clear the cached infos by RdmaCtrl;
   void clear_dev_info();
 

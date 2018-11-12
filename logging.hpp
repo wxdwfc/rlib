@@ -10,38 +10,38 @@
 namespace rdmaio {
 
 /**
- * \def LOG_FATAL
+ * \def FATAL
  *   Used for fatal and probably irrecoverable conditions
- * \def LOG_ERROR
+ * \def ERROR
  *   Used for errors which are recoverable within the scope of the function
- * \def LOG_WARNING
+ * \def WARNING
  *   Logs interesting conditions which are probably not fatal
- * \def LOG_EMPH
- *   Outputs as LOG_INFO, but in LOG_WARNING colors. Useful for
+ * \def EMPH
+ *   Outputs as INFO, but in WARNING colors. Useful for
  *   outputting information you want to emphasize.
- * \def LOG_INFO
+ * \def INFO
  *   Used for providing general useful information
- * \def LOG_DEBUG
+ * \def DEBUG
  *   Debugging purposes only
- * \def LOG_EVERYTHING
+ * \def EVERYTHING
  *   Log everything
  */
 
 enum loglevel {
-  LOG_NONE       = 7,
-  LOG_FATAL      = 6,
-  LOG_ERROR      = 5,
-  LOG_WARNING    = 4,
-  LOG_EMPH       = 3,
-  LOG_INFO       = 2,
-  LOG_DEBUG      = 1,
-  LOG_EVERYTHING = 0
+  NONE       = 7,
+  FATAL      = 6,
+  ERROR      = 5,
+  WARNING    = 4,
+  EMPH       = 3,
+  INFO       = 2,
+  DEBUG      = 1,
+  EVERYTHING = 0
 };
 
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
 #ifndef RDMA_LOG_LEVEL
-#define RDMA_LOG_LEVEL ::rdmaio::LOG_INFO
+#define RDMA_LOG_LEVEL ::rdmaio::INFO
 #endif
 
 // logging macro definiations
@@ -62,7 +62,7 @@ enum loglevel {
 
 #define RDMA_ASSERT(condition)                                               \
   if(unlikely(!(condition)))                                            \
-    ::rdmaio::MessageLogger((char*)__FILE__, __LINE__, ::rdmaio::LOG_FATAL + 1).stream() << "Assertion! "
+    ::rdmaio::MessageLogger((char*)__FILE__, __LINE__, ::rdmaio::FATAL + 1).stream() << "Assertion! "
 
 #define RDMA_VERIFY(n,condition) RDMA_LOG_IF(n,(!(condition)))
 
@@ -79,7 +79,7 @@ class MessageLogger {
       stream_ << "\n";
       std::cout << "\033[" << RDMA_DEBUG_LEVEL_COLOR[std::min(level_,6)] << "m"
                 << stream_.str() << EndcolorFlag();
-      if(level_ >= ::rdmaio::LOG_FATAL)
+      if(level_ >= ::rdmaio::FATAL)
         abort();
     }
   }

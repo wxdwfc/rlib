@@ -25,7 +25,7 @@ class Memory {
       mr(ibv_reg_mr(pd,addr,len,flag))
   {
     if(mr == nullptr) {
-      RDMA_LOG(LOG_WARNING) << "failed to register mr, for addr " << addr << "; len " << len;
+      RDMA_LOG(WARNING) << "failed to register mr, for addr " << addr << "; len " << len;
     } else {
       rattr.buf = (uintptr_t)addr;
       rattr.key = mr->rkey;
@@ -35,7 +35,7 @@ class Memory {
   ~Memory() {
     if(mr != nullptr) {
       int rc = ibv_dereg_mr(mr);
-      RDMA_LOG_IF(LOG_ERROR,rc != 0) << "dereg mr error: " << strerror(errno);
+      RDMA_LOG_IF(ERROR,rc != 0) << "dereg mr error: " << strerror(errno);
     }
   }
 

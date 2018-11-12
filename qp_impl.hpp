@@ -65,6 +65,7 @@ class QPImpl {
 
     auto socket = PreConnector::get_send_socket(ip,port);
     if(socket < 0) {
+      RDMA_LOG(3) << "get socket err";
       return ERR;
     }
 
@@ -155,11 +156,11 @@ class RCQPImpl {
 
     int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
     int rc = ibv_modify_qp(qp, &qp_attr,flags);
-    RDMA_VERIFY(LOG_WARNING,rc == 0) <<  "Failed to modify RC to INIT state, %s\n" <<  strerror(errno);
+    RDMA_VERIFY(WARNING,rc == 0) <<  "Failed to modify RC to INIT state, %s\n" <<  strerror(errno);
 
     if(rc != 0) {
       // error handling
-      RDMA_LOG(LOG_WARNING) << " change state to init failed. ";
+      RDMA_LOG(WARNING) << " change state to init failed. ";
     }
   }
 
@@ -223,7 +224,7 @@ class RCQPImpl {
 
     // create the CQ
     cq = ibv_create_cq(rnic->ctx, RC_MAX_SEND_SIZE, nullptr, nullptr, 0);
-    RDMA_VERIFY(LOG_WARNING,cq != nullptr) << "create cq error: " << strerror(errno);
+    RDMA_VERIFY(WARNING,cq != nullptr) << "create cq error: " << strerror(errno);
 
     // create the QP
     struct ibv_qp_init_attr qp_init_attr = {};
@@ -239,7 +240,7 @@ class RCQPImpl {
     qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
 
     qp = ibv_create_qp(rnic->pd, &qp_init_attr);
-    RDMA_VERIFY(LOG_WARNING,qp != nullptr);
+    RDMA_VERIFY(WARNING,qp != nullptr);
 
     if(qp)
       ready2init<F>(qp,rnic);
@@ -265,12 +266,12 @@ class UDQPImpl {
       return;
 
 	if((cq = ibv_create_cq(rnic->ctx, config.max_send_size, nullptr, nullptr, 0)) == nullptr) {
-      RDMA_LOG(LOG_ERROR) << "create send cq for UD QP error: " << strerror(errno);
+      RDMA_LOG(ERROR) << "create send cq for UD QP error: " << strerror(errno);
       return;
     }
 
 	if((recv_cq = ibv_create_cq(rnic->ctx, config.max_recv_size, nullptr, nullptr, 0)) == nullptr) {
-      RDMA_LOG(LOG_ERROR) << "create recv cq for UD QP error: " << strerror(errno);
+      RDMA_LOG(ERROR) << "create recv cq for UD QP error: " << strerror(errno);
       return;
     }
 
@@ -287,7 +288,7 @@ class UDQPImpl {
 	qp_init_attr.cap.max_inline_data = MAX_INLINE_SIZE;
 
 	if((qp = ibv_create_qp(rnic->pd, &qp_init_attr)) == nullptr) {
-      RDMA_LOG(LOG_ERROR) << "create send qp for UD QP error: " << strerror(errno);
+      RDMA_LOG(ERROR) << "create send qp for UD QP error: " << strerror(errno);
       return;
     }
 
@@ -295,10 +296,10 @@ class UDQPImpl {
 	ready2init(qp, rnic,config); // shall always succeed
 
 	if(!ready2rcv(qp,rnic)) {
-      RDMA_LOG(LOG_WARNING) << "change ud qp to ready to recv error: " << strerror(errno);
+      RDMA_LOG(WARNING) << "change ud qp to ready to recv error: " << strerror(errno);
     }
 	if(!ready2send(qp,config)) {
-      RDMA_LOG(LOG_WARNING) << "change ud qp to ready to send error: " << strerror(errno);
+      RDMA_LOG(WARNING) << "change ud qp to ready to send error: " << strerror(errno);
     }
   }
 
@@ -317,7 +318,7 @@ class UDQPImpl {
 	qp_attr.qkey = config.qkey;
 
 	if((rc = ibv_modify_qp(qp, &qp_attr, flags)) != 0) {
-      RDMA_LOG(LOG_WARNING) << "modify ud qp to init error: " << strerror(errno);
+      RDMA_LOG(WARNING) << "modify ud qp to init error: " << strerror(errno);
     }
   }
 

@@ -159,7 +159,8 @@ class RRCQP : public QP {
     // first check whether QP is valid to connect
     enum ibv_qp_state state;
     if( (state = QPImpl::query_qp_status(qp_)) != IBV_QPS_INIT) {
-      RDMA_LOG(LOG_WARNING) << "qp not in a connect state to connect!";
+      if(state != IBV_QPS_RTS)
+        RDMA_LOG(WARNING) << "qp not in a correct state to connect!";
       return (state == IBV_QPS_RTS)?SUCC:UNKNOWN;
     }
     ConnArg arg = {} ; ConnReply reply = {};
@@ -172,13 +173,13 @@ class RRCQP : public QP {
     if(ret == SUCC) {
       // change QP status
       if(!RCQPImpl::ready2rcv<F>(qp_,reply.payload.qp,rnic_)) {
-        RDMA_LOG(LOG_WARNING) << "change qp status to ready to receive error: " << strerror(errno);
+        RDMA_LOG(WARNING) << "change qp status to ready to receive error: " << strerror(errno);
         ret = ERR;
         goto CONN_END;
       }
 
       if(!RCQPImpl::ready2send<F>(qp_)) {
-        RDMA_LOG(LOG_WARNING) << "change qp status to ready to send error: " << strerror(errno);
+        RDMA_LOG(WARNING) << "change qp status to ready to send error: " << strerror(errno);
         ret = ERR;
         goto CONN_END;
       }
@@ -387,7 +388,7 @@ class RUDQP : public QP {
       // create the ah, and store the address handler
       auto ah = UDQPImpl::create_ah(rnic_,reply.payload.qp);
       if(ah == nullptr) {
-        RDMA_LOG(LOG_WARNING) << "create address handler error: " << strerror(errno);
+        RDMA_LOG(WARNING) << "create address handler error: " << strerror(errno);
         ret = ERR;
       } else {
         ahs_[reply.payload.qp.node_id]   = ah;
