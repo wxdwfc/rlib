@@ -2,7 +2,7 @@
 
 ### Intro
 
-RLib is a header-only library for **easier** use of RDMA. Basically it is a set of wrappers of the interfaces of `libibverbs`, 
+RLib is a header-only library for **easier** use of RDMA using C++. Basically it is a set of wrappers of the interfaces of `libibverbs`, 
 yet it additionally handles many tedius things, such as establishing connections between RDMA QPs, and simplifies many configurations.
 
 ------
@@ -29,7 +29,7 @@ int tcp_port       = 8888;
 
 RdmaCtrl *c = new RdmaCtrl(server_node_id,tcp_port);
 RdmaCtrl::DevIdx idx {.dev_id = 0,.port_id = 1 }; // using the first RNIC's first port
-c->open_device(idx);
+c->open_thread_local_device(idx);
 
 // register a buffer to the previous opened device, using id = 73
 char *buffer = (char *)malloc(4096);
@@ -50,7 +50,7 @@ int tcp_port       = 8888;
 
 RdmaCtrl *c = new RdmaCtrl(client_node_id,tcp_port);
 RdmaCtrl::DevIdx idx {.dev_id = 0,.port_id = 1 }; // using the first RNIC's first port
-c->open_device(idx);
+c->open_thread_local_device(idx);
 
 // register a buffer to the previous opened device, using id = 73
 char *buffer = (char *)malloc(4096);

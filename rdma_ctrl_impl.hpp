@@ -269,12 +269,11 @@ class RdmaCtrl::RdmaCtrlImpl {
 
   std::vector<RNicInfo>  query_devs() {
 
-
     if(cached_infos_.size() != 0) {
-      //RDMA_LOG(INFO) << "use cached device info. If not wanted, use clear_dev_info(); ";
       return cached_infos_;
     }
-    return query_devs_helper();
+    cached_infos_ = query_devs_helper();
+    return std::vector<RNicInfo>(cached_infos_.begin(),cached_infos_.end());
   }
 
   RdmaCtrl::DevIdx convert_port_idx(int idx) {

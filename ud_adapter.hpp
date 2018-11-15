@@ -85,7 +85,7 @@ class UDRecvManager {
 
     int rc = ibv_post_recv(qp_->qp_,head_rr,&bad_rr_);
     if(rc != 0) {
-      RDMA_LOG(LOG_ERROR) << "post recv " << recv_num << "; w error: " << strerror(errno) ;
+      RDMA_LOG(ERROR) << "post recv " << recv_num << "; w error: " << strerror(errno) ;
     }
     recv_head_ = tail;
     tail_rr->next = temp;
