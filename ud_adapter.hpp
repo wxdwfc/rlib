@@ -122,7 +122,7 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
     return send_qp_->connect(ip,port,create_ud_idx(worker_id_,RECV_QP_IDX));
   }
 
-  ConnStatus send_to(int node_id,char *msg,int len) {
+  ConnStatus send_to(int node_id,const char *msg,int len) {
 
     RDMA_ASSERT(current_idx_ == 0) << "There is pending reqs in the msg queue.";
     srs_[0].wr.ud.ah = send_qp_->ahs_[node_id];
@@ -155,7 +155,7 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
     RDMA_ASSERT(current_idx_ == 0);
   }
 
-  ConnStatus send_pending(int node_id,char *msg,int len) {
+  ConnStatus send_pending(int node_id,const char *msg,int len) {
 
     auto i = current_idx_++;
     srs_[i].wr.ud.ah = send_qp_->ahs_[node_id];
@@ -201,7 +201,7 @@ class UDAdapter : public MsgAdapter, public UDRecvManager {
     for(uint i = 0;i < poll_result;++i) { // poll_result: number of results
       RDMA_ASSERT(wcs_[i].status == IBV_WC_SUCCESS)
           << "error wc status " << wcs_[i].status << " at " << worker_id_;
-      callback_((char *)(wcs_[i].wr_id + GRH_SIZE),::rdmaio::decode_qp_mac(wcs_[i].imm_data),
+      callback_((const char *)(wcs_[i].wr_id + GRH_SIZE),::rdmaio::decode_qp_mac(wcs_[i].imm_data),
                 ::rdmaio::decode_qp_index(wcs_[i].imm_data));
     }
     flush_pending(); // send the batched replies

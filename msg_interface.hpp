@@ -8,7 +8,7 @@
 
 namespace rdmaio {
 
-typedef std::function<void(char *,int,int)> msg_callback_t_;
+typedef std::function<void(const char *,int,int)> msg_callback_t_;
 
 /**
  * An abstract message interface
@@ -25,9 +25,9 @@ class MsgAdapter {
   /**
    * Basic send interfaces
    */
-  virtual ConnStatus send_to(int node_id,char *msg,int len) = 0;
+  virtual ConnStatus send_to(int node_id,const char *msg,int len) = 0;
 
-  virtual ConnStatus send_to(int node_id,int tid,char *msg,int len) {
+  virtual ConnStatus send_to(int node_id,int tid,const char *msg,int len) {
     return send_to(node_id,msg,len);
   }
 
@@ -37,11 +37,11 @@ class MsgAdapter {
   virtual void prepare_pending() {
   }
 
-  virtual ConnStatus send_pending(int node_id,char *msg,int len) {
+  virtual ConnStatus send_pending(int node_id,const char *msg,int len) {
     RDMA_ASSERT(false); // not implemented
   }
 
-  virtual ConnStatus send_pending(int node_id,int tid,char *msg,int len) {
+  virtual ConnStatus send_pending(int node_id,int tid,const char *msg,int len) {
     return send_pending(node_id,msg,len);
   }
 
@@ -56,7 +56,7 @@ class MsgAdapter {
    * Examples to use batching at the sender side
    * Broadcast the message to a set of servers
    */
-  virtual ConnStatus broadcast_to(const std::set<int> &nodes, char *msg,int len) {
+  virtual ConnStatus broadcast_to(const std::set<int> &nodes, const char *msg,int len) {
     prepare_pending();
     for(auto it = nodes.begin(); it != nodes.end(); ++it) {
       send_pending(*it,msg,len);
@@ -65,7 +65,7 @@ class MsgAdapter {
     return SUCC; // TODO
   }
 
-  virtual ConnStatus broadcast_to(int *nodes,int num, char *msg,int len) {
+  virtual ConnStatus broadcast_to(int *nodes,int num, const char *msg,int len) {
     prepare_pending();
     for(int i = 0;i < num;++i) {
       send_pending(nodes[i],msg,len);
