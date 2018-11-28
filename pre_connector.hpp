@@ -18,7 +18,7 @@ constexpr struct timeval default_timeout = {0,8000};
 constexpr struct timeval no_timeout      = {0,0};  // it means forever
 
 inline __attribute__ ((always_inline)) // inline to avoid multiple-definiations
-int64_t diff_time(struct timeval &end, struct timeval &start) {
+int64_t diff_time(const struct timeval &end, const struct timeval &start) {
   int64_t diff = (end.tv_sec > start.tv_sec)?(end.tv_sec - start.tv_sec) * 1000:0;
   if (end.tv_usec > start.tv_usec) {
     diff += (end.tv_usec - start.tv_usec);
