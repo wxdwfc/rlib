@@ -20,6 +20,15 @@ class MsgAdapter {
   MsgAdapter(msg_callback_t_ callback)
       : callback_(callback) {
   }
+
+  MsgAdapter() {
+
+  }
+
+  void set_callback(msg_callback_t_ callback) {
+    callback_ = callback;
+  }
+
   virtual ConnStatus connect(std::string ip,int port) = 0;
 
   /**
