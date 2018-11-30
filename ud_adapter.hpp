@@ -97,13 +97,6 @@ class UDRecvManager {
 class UDAdapter : public MsgAdapter, public UDRecvManager {
   static const int MAX_UD_SEND_DOORBELL = 16;
  public:
-
-  UDAdapter(RdmaCtrl *cm, RNicHandler *rnic, MemoryAttr local_mr,
-            int w_id, int max_recv_num,msg_callback_t_ callback):
-      MsgAdapter(callback),
-      UDAdapter(cm,rnic,local_mr,w_id,max_recv_num) {
-  }
-
   UDAdapter(RdmaCtrl *cm, RNicHandler *rnic, MemoryAttr local_mr,
         int w_id, int max_recv_num):
       node_id_(cm->current_node_id()),
