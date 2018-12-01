@@ -219,7 +219,7 @@ class RdmaCtrl::RdmaCtrlImpl {
   }
 
   MemoryAttr get_local_mr(int mr_id) {
-    MemoryAttr attr;
+    MemoryAttr attr = {};
     {
       SCS s;
       if(mrs_.find(mr_id) != mrs_.end())

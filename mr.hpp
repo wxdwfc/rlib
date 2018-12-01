@@ -6,8 +6,8 @@
 namespace rdmaio {
 
 struct MemoryAttr {
-  uintptr_t  buf;
-  uint32_t   key;
+  uintptr_t  buf = 0;
+  uint32_t   key = 0;
 };
 
 class Memory {
