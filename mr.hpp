@@ -19,10 +19,10 @@ class Memory {
   static const int DEFAULT_PROTECTION_FLAG = (IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | \
                                               IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC );
 
-  Memory(char *addr,uint64_t len,ibv_pd *pd,int flag):
+  Memory(const char *addr,uint64_t len,ibv_pd *pd,int flag):
       addr(addr),
       len(len),
-      mr(ibv_reg_mr(pd,addr,len,flag))
+      mr(ibv_reg_mr(pd,(void *)addr,len,flag))
   {
     if(mr == nullptr) {
       RDMA_LOG(WARNING) << "failed to register mr, for addr " << addr << "; len " << len;
@@ -43,7 +43,7 @@ class Memory {
     return mr != nullptr;
   }
 
-  char *addr;
+  const char *addr;
   uint64_t len;
 
   MemoryAttr rattr;        // RDMA registered attr

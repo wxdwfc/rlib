@@ -189,7 +189,7 @@ class RdmaCtrl::RdmaCtrlImpl {
     return res;
   }
 
-  bool register_memory(int mr_id,char *buf,uint64_t size,RNicHandler *rnic,int flag) {
+  bool register_memory(int mr_id,const char *buf,uint64_t size,RNicHandler *rnic,int flag) {
 
     Memory *m = new Memory(buf,size,rnic->pd,flag);
     if(!m->valid()) {
@@ -535,7 +535,7 @@ RdmaCtrl::DevIdx RdmaCtrl::convert_port_idx(int idx) {
 }
 
 inline __attribute__ ((always_inline))
-bool RdmaCtrl::register_memory(int id,char *buf,uint64_t size,RNicHandler *rnic,int flag) {
+bool RdmaCtrl::register_memory(int id,const char *buf,uint64_t size,RNicHandler *rnic,int flag) {
   return impl_->register_memory(id,buf,size,rnic,flag);
 }
 

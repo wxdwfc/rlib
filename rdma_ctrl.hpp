@@ -58,7 +58,7 @@ class RdmaCtrl {
   /**
    * Register memory to a specific RNIC handler
    */
-  bool register_memory(int id,char *buf,uint64_t size,RNicHandler *rnic,
+  bool register_memory(int id,const char *buf,uint64_t size,RNicHandler *rnic,
                        int flag = Memory::DEFAULT_PROTECTION_FLAG);
 
   /**
