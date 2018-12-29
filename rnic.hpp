@@ -104,14 +104,21 @@ struct RNicInfo {
     }
   }
 
-  void print() {
-    RDMA_LOG(INFO) << "device " << dev_name << " has "<< active_ports.size() << " active ports.";
+  void print() const {
+    RDMA_LOG(3) << to_string();
+  }
+
+  std::string to_string() const {
+    std::ostringstream oss;
+
+    oss << "device " << dev_name << " has "<< active_ports.size() << " active ports.";
     for(auto i : active_ports) {
-      RDMA_LOG(INFO) << "port " << i.port_id << " w link layer " << i.link_layer << ".";
+      oss << "port " << i.port_id << " w link layer " << i.link_layer << ".";
     }
     for(uint i = 0;i <active_gids.size();++i) {
-      RDMA_LOG(INFO) << "active gid: " << active_gids[i] << ".";
+      oss << "active gid: " << active_gids[i] << ".";
     }
+    return oss.str();
   }
 
   // members
