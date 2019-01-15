@@ -10,9 +10,16 @@ const int MAX_SERVER_SUPPORTED = 16;
 typedef RUDQP<default_ud_config,MAX_SERVER_SUPPORTED> UDQP;
 typedef RRCQP<default_rc_config>                      RCQP;
 
+typedef std::function<void (const QPConnArg &)>     connection_callback_t;
+
 class RdmaCtrl {
  public:
-  RdmaCtrl(int node_id, int tcp_base_port,std::string ip = "localhost");
+  RdmaCtrl(int node_id, int tcp_base_port,
+           connection_callback_t callback = [](const QPConnArg &) {
+                                              // the default callback does nothing
+                                            },
+           std::string ip = "localhost");
+
   ~RdmaCtrl();
 
   int current_node_id();
@@ -44,6 +51,11 @@ class RdmaCtrl {
   RNicHandler *open_device(DevIdx idx);
 
   RNicHandler *get_device();
+
+  /**
+   * The *callback* is called once a QP connection request is sent to this server
+   */
+  void register_qp_callback(connection_callback_t callback);
 
   void close_device();
 

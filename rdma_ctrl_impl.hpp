@@ -42,10 +42,11 @@ inline uint32_t get_ud_key(const QPIdx idx) {
  */
 class RdmaCtrl::RdmaCtrlImpl {
  public:
-  RdmaCtrlImpl(int node_id, int tcp_base_port,std::string local_ip):
+  RdmaCtrlImpl(int node_id, int tcp_base_port,connection_callback_t callback,std::string local_ip):
       node_id_(node_id),
       tcp_base_port_(tcp_base_port),
-      local_ip_(local_ip)
+      local_ip_(local_ip),
+      qp_callback_(callback)
   {
     // start the background thread to handle QP connection request
     pthread_attr_t attr;
@@ -370,6 +371,7 @@ class RdmaCtrl::RdmaCtrlImpl {
             };
             break;
           case ConnArg::QP: {
+            qp_callback_(arg.payload.qp); // call the user callback
             QP *qp = NULL;
             switch(arg.payload.qp.qp_type) {
               case IBV_QPT_UD:
@@ -433,6 +435,9 @@ class RdmaCtrl::RdmaCtrlImpl {
   pthread_t handler_tid_;
   bool running_ = true;
 
+  // connection callback function
+  connection_callback_t qp_callback_;
+
   bool link_symmetric_rcqps(const std::vector<std::string> &cluster,int l_mrid,int mr_id,int wid,int idx) {
 
     std::vector<bool> ready_list(cluster.size(),false);
@@ -481,12 +486,16 @@ class RdmaCtrl::RdmaCtrlImpl {
     }
     return true; // This example does not use error handling
   }
+
+  void register_qp_callback(connection_callback_t callback) {
+    qp_callback_ = callback;
+  }
 }; //
 
 // link to the main class
 inline __attribute__ ((always_inline))
-RdmaCtrl::RdmaCtrl(int node_id, int tcp_base_port,std::string ip)
-    :impl_(new RdmaCtrlImpl(node_id,tcp_base_port,ip)){
+RdmaCtrl::RdmaCtrl(int node_id, int tcp_base_port,connection_callback_t callback,std::string ip)
+    :impl_(new RdmaCtrlImpl(node_id,tcp_base_port,callback,ip)){
 }
 
 inline __attribute__ ((always_inline))
@@ -588,6 +597,11 @@ bool RdmaCtrl::link_symmetric_rcqps(const std::vector<std::string> &cluster,
 inline __attribute__ ((always_inline))
 std::vector<RNicInfo> RdmaCtrl::query_devs_helper() {
   return RdmaCtrlImpl::query_devs_helper();
+}
+
+inline __attribute__ ((always_inline))
+void RdmaCtrl::register_qp_callback(connection_callback_t callback) {
+  impl_->register_qp_callback(callback);
 }
 
 };
