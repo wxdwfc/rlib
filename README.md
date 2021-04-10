@@ -1,5 +1,8 @@
 ## RLib
 
+### Notice
+The latest version has been transferred to https://github.com/wxdwfc/rlibv2, which is now actively maintained. 
+
 ### Intro
 
 RLib is a header-only library for **easier** use of RDMA using C++. Basically it is a set of wrappers of the interfaces of `libibverbs`, 
